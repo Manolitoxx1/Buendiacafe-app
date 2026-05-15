@@ -975,7 +975,7 @@ function fallbackPrintComanda(tableName, items) {
     tb.innerHTML = '';
     items.forEach(function(it) {
         var tr = document.createElement('tr');
-        tr.innerHTML = '<td class="ticket-td-center" style="font-size:16px;">' + it.qty + '</td><td class="ticket-td-left" style="font-size:16px;font-weight:bold;">' + it.name + '</td>';
+        tr.innerHTML = '<td class="ticket-td-center" style="font-size:22px; font-weight:bold; padding:4px 0;">' + it.qty + '</td><td class="ticket-td-left" style="font-size:22px; font-weight:bold; padding:4px 0;">' + it.name + '</td>';
         tb.appendChild(tr);
     });
     
