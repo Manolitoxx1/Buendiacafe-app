@@ -1,0 +1,17 @@
+{
+  "name": "Buen Día Café - Sistema de Control",
+  "short_name": "Buen Día",
+  "description": "Sistema de gestión y punto de venta para Buen Día Café.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#047857",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
