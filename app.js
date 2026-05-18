@@ -46,33 +46,20 @@ var STATE = {
 var CURRENT_ROLE = localStorage.getItem('fudo_role') || null;
 var BARISTA_CATS = ['Cafetería', 'Bebidas', 'Cafetería fría', 'Té'];
 
-db.ref('initialized').once('value').then(function(snap) {
-    if (!snap.val()) {
-        var localTables = JSON.parse(localStorage.getItem('fudo_tables') || '[]');
-        var localMenu = JSON.parse(localStorage.getItem('fudo_menu') || 'null');
-        var localHistory = JSON.parse(localStorage.getItem('fudo_history') || '[]');
-        db.ref('tables').set(localTables);
-        db.ref('menu').set(localMenu || [
-            { id: 'p1', name: 'Cafe Expreso', price: 1500, category: 'Cafetería' },
-            { id: 'p2', name: 'Cortado', price: 1600, category: 'Cafetería' },
-            { id: 'p3', name: 'Latte', price: 1900, category: 'Cafetería' },
-            { id: 'p4', name: 'Medialuna de Manteca', price: 600, category: 'Dulce' },
-            { id: 'p5', name: 'Tostado de Miga', price: 2500, category: 'Salado' },
-            { id: 'p6', name: 'Jugo de Naranja', price: 1800, category: 'Bebidas' }
-        ]);
-        db.ref('history').set(localHistory);
-        db.ref('initialized').set(true);
-    }
-});
 
-function saveTables() {
+
+function saveAllTables() {
     db.ref('tables').set(STATE.tables || []).catch(function(e){ console.error(e); alert('Error al guardar mesas: ' + e.message); });
+}
+function saveTable(table) {
+    if (!table) return;
+    var idx = STATE.tables.findIndex(function(t) { return t.id === table.id; });
+    if (idx >= 0) {
+        db.ref('tables/' + idx).set(table).catch(function(e){ console.error(e); alert('Error al guardar mesa: ' + e.message); });
+    }
 }
 function saveMenu() {
     db.ref('menu').set(STATE.menu || []).catch(function(e){ console.error(e); alert('Error al guardar menú: ' + e.message); });
-}
-function saveHistory() {
-    db.ref('history').set(STATE.history || []).catch(function(e){ console.error(e); alert('Error al guardar historial: ' + e.message); });
 }
 function genId() { return Math.random().toString(36).substr(2, 9); }
 function fmt(n) { return '$' + Math.round(n); }
@@ -131,7 +118,7 @@ function init() {
         var tip = $('input-table-tip').checked;
         if (name) {
             STATE.tables.push({ id: genId(), name: name, zone: zone, tip: tip, status: 'free', order: [] });
-            saveTables();
+            saveAllTables();
             renderTables();
             $('modal-table').classList.add('hidden');
         }
@@ -172,7 +159,7 @@ function init() {
     $('order-panel-overlay').addEventListener('click', closeOrder);
     $('order-tip-checkbox').addEventListener('change', function(e) {
         var t = getTable();
-        if (t) { t.tip = e.target.checked; saveTables(); renderOrderItems(); }
+        if (t) { t.tip = e.target.checked; saveTable(t); renderOrderItems(); }
     });
 
     $('order-search').addEventListener('input', function() {
@@ -223,9 +210,9 @@ function init() {
                 paymentMethod: payment,
                 items: recItems
             };
-            STATE.history.push(rec);
+            db.ref('history').push(rec).catch(function(e){ console.error(e); alert('Error al guardar cobro: ' + e.message); });
             t.order = []; t.tickets = []; t.status = 'free';
-            saveTables(); saveHistory(); renderTables(); renderHistory(); updateDaily(); closeOrder();
+            saveTable(t); closeOrder();
         }
     });
 
@@ -253,7 +240,7 @@ function init() {
             });
             if (ticketItems.length > 0) {
                 t.tickets.push({ id: genId(), timestamp: now, items: ticketItems, status: 'pending', printed: false });
-                saveTables();
+                saveTable(t);
                 sentAny = true;
                 if (CURRENT_ROLE !== 'barista') renderTables();
             }
@@ -346,19 +333,19 @@ function init() {
         
         // Print Server Logic
         if (PrinterManager.isServer) {
-            var needSave = false;
             STATE.tables.forEach(function(t) {
+                var tableChanged = false;
                 if (t.tickets) {
                     t.tickets.forEach(function(tk) {
                         if (tk.status === 'pending' && tk.printed === false) {
                             PrinterManager.enqueueJob(t.name, tk.items, t.id, tk.id);
                             tk.printed = true;
-                            needSave = true;
+                            tableChanged = true;
                         }
                     });
                 }
+                if (tableChanged) saveTable(t);
             });
-            if (needSave) saveTables();
         }
         if (STATE.currentTableId) {
             renderOrderItems();
@@ -480,7 +467,7 @@ function renderTables() {
             if (table.status !== 'free') { alert('Mesa ocupada, no se puede eliminar.'); return; }
             showConfirm('Eliminar esta mesa?', function() {
                 STATE.tables = STATE.tables.filter(function(x) { return x.id !== table.id; });
-                saveTables(); renderTables();
+                saveAllTables(); renderTables();
             });
         });
         var zoneKey = table.zone ? table.zone.toLowerCase().replace('ó', 'o') : 'salon';
@@ -555,7 +542,7 @@ function addToOrder(pid) {
     var ex = t.order.find(function(x) { return x.productId === pid; });
     if (ex) { ex.qty++; } else { t.order.push({ productId: pid, qty: 1 }); }
     t.status = 'occupied';
-    saveTables(); renderTables(); renderOrderItems();
+    saveTable(t); renderTables(); renderOrderItems();
     var st = $('order-panel-status');
     st.className = 'order-panel-status status-badge-occupied';
     st.textContent = 'Ocupada';
@@ -569,7 +556,7 @@ function changeQty(pid, delta) {
         t.order[idx].qty += delta;
         if (t.order[idx].qty <= 0) t.order.splice(idx, 1);
         if (t.order.length === 0) t.status = 'free';
-        saveTables(); renderTables(); renderOrderItems();
+        saveTable(t); renderTables(); renderOrderItems();
         var st = $('order-panel-status');
         st.className = 'order-panel-status ' + (t.status === 'free' ? 'status-badge-free' : 'status-badge-occupied');
         st.textContent = t.status === 'free' ? 'Libre' : 'Ocupada';
@@ -629,7 +616,7 @@ function renderOrderItems() {
                     tk.status = 'delivered';
                 }
             });
-            saveTables();
+            saveTable(t);
             renderTables();
             renderOrderItems();
         });
@@ -1075,7 +1062,7 @@ function renderKDS() {
                             var actualIt = actualTk.items.find(function(x){ return x.productId === pid; });
                             if (actualIt) {
                                 actualIt.done = isChecked;
-                                saveState();
+                                saveTable(actualTable);
                                 renderKDS();
                             }
                         }
