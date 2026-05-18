@@ -65,10 +65,14 @@ db.ref('initialized').once('value').then(function(snap) {
     }
 });
 
-function saveState() {
-    db.ref('tables').set(STATE.tables || []).catch(function(e){ console.error(e); alert('Error al guardar: ' + e.message); });
-    db.ref('menu').set(STATE.menu || []).catch(function(e){ console.error(e); alert('Error al guardar: ' + e.message); });
-    db.ref('history').set(STATE.history || []).catch(function(e){ console.error(e); alert('Error al guardar: ' + e.message); });
+function saveTables() {
+    db.ref('tables').set(STATE.tables || []).catch(function(e){ console.error(e); alert('Error al guardar mesas: ' + e.message); });
+}
+function saveMenu() {
+    db.ref('menu').set(STATE.menu || []).catch(function(e){ console.error(e); alert('Error al guardar menú: ' + e.message); });
+}
+function saveHistory() {
+    db.ref('history').set(STATE.history || []).catch(function(e){ console.error(e); alert('Error al guardar historial: ' + e.message); });
 }
 function genId() { return Math.random().toString(36).substr(2, 9); }
 function fmt(n) { return '$' + Math.round(n); }
@@ -127,7 +131,7 @@ function init() {
         var tip = $('input-table-tip').checked;
         if (name) {
             STATE.tables.push({ id: genId(), name: name, zone: zone, tip: tip, status: 'free', order: [] });
-            saveState();
+            saveTables();
             renderTables();
             $('modal-table').classList.add('hidden');
         }
@@ -156,7 +160,7 @@ function init() {
             } else {
                 STATE.menu.push({ id: genId(), name: name, price: price, category: cat });
             }
-            saveState();
+            saveMenu();
             renderMenu();
             $('modal-product').classList.add('hidden');
         }
@@ -168,7 +172,7 @@ function init() {
     $('order-panel-overlay').addEventListener('click', closeOrder);
     $('order-tip-checkbox').addEventListener('change', function(e) {
         var t = getTable();
-        if (t) { t.tip = e.target.checked; saveState(); renderOrderItems(); }
+        if (t) { t.tip = e.target.checked; saveTables(); renderOrderItems(); }
     });
 
     $('order-search').addEventListener('input', function() {
@@ -221,7 +225,7 @@ function init() {
             };
             STATE.history.push(rec);
             t.order = []; t.tickets = []; t.status = 'free';
-            saveState(); renderTables(); renderHistory(); updateDaily(); closeOrder();
+            saveTables(); saveHistory(); renderTables(); renderHistory(); updateDaily(); closeOrder();
         }
     });
 
@@ -249,7 +253,7 @@ function init() {
             });
             if (ticketItems.length > 0) {
                 t.tickets.push({ id: genId(), timestamp: now, items: ticketItems, status: 'pending', printed: false });
-                saveState();
+                saveTables();
                 sentAny = true;
                 if (CURRENT_ROLE !== 'barista') renderTables();
             }
@@ -354,7 +358,7 @@ function init() {
                     });
                 }
             });
-            if (needSave) saveState();
+            if (needSave) saveTables();
         }
         if (STATE.currentTableId) {
             renderOrderItems();
@@ -476,7 +480,7 @@ function renderTables() {
             if (table.status !== 'free') { alert('Mesa ocupada, no se puede eliminar.'); return; }
             showConfirm('Eliminar esta mesa?', function() {
                 STATE.tables = STATE.tables.filter(function(x) { return x.id !== table.id; });
-                saveState(); renderTables();
+                saveTables(); renderTables();
             });
         });
         var zoneKey = table.zone ? table.zone.toLowerCase().replace('ó', 'o') : 'salon';
@@ -551,7 +555,7 @@ function addToOrder(pid) {
     var ex = t.order.find(function(x) { return x.productId === pid; });
     if (ex) { ex.qty++; } else { t.order.push({ productId: pid, qty: 1 }); }
     t.status = 'occupied';
-    saveState(); renderTables(); renderOrderItems();
+    saveTables(); renderTables(); renderOrderItems();
     var st = $('order-panel-status');
     st.className = 'order-panel-status status-badge-occupied';
     st.textContent = 'Ocupada';
@@ -565,7 +569,7 @@ function changeQty(pid, delta) {
         t.order[idx].qty += delta;
         if (t.order[idx].qty <= 0) t.order.splice(idx, 1);
         if (t.order.length === 0) t.status = 'free';
-        saveState(); renderTables(); renderOrderItems();
+        saveTables(); renderTables(); renderOrderItems();
         var st = $('order-panel-status');
         st.className = 'order-panel-status ' + (t.status === 'free' ? 'status-badge-free' : 'status-badge-occupied');
         st.textContent = t.status === 'free' ? 'Libre' : 'Ocupada';
@@ -625,7 +629,7 @@ function renderOrderItems() {
                     tk.status = 'delivered';
                 }
             });
-            saveState();
+            saveTables();
             renderTables();
             renderOrderItems();
         });
@@ -664,7 +668,7 @@ function renderMenu() {
         c.querySelector('.btn-dp').addEventListener('click', function() {
             showConfirm('Eliminar ' + p.name + '?', function() {
                 STATE.menu = STATE.menu.filter(function(x) { return x.id !== p.id; });
-                saveState(); renderMenu();
+                saveMenu(); renderMenu();
             });
         });
         list.appendChild(c);
