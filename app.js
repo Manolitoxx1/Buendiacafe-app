@@ -1,10 +1,18 @@
 // --- POLYFILLS PARA TABLETS ANTIGUAS ---
 if (!Array.prototype.find) {
-    Array.prototype.find = function(fn) {
+    Array.prototype.find = function(fn, thisArg) {
         for (var i = 0; i < this.length; i++) {
-            if (fn(this[i])) return this[i];
+            if (fn.call(thisArg, this[i], i, this)) return this[i];
         }
         return undefined;
+    };
+}
+if (!Array.prototype.findIndex) {
+    Array.prototype.findIndex = function(fn, thisArg) {
+        for (var i = 0; i < this.length; i++) {
+            if (fn.call(thisArg, this[i], i, this)) return i;
+        }
+        return -1;
     };
 }
 if (!Element.prototype.matches) {
@@ -40,7 +48,9 @@ var STATE = {
     menu: [],
     history: [],
     currentTableId: null,
-    editingProductId: null
+    editingProductId: null,
+    isSaving: false,
+    isConnected: false
 };
 
 var CURRENT_ROLE = localStorage.getItem('fudo_role') || null;
@@ -49,14 +59,16 @@ var BARISTA_CATS = ['Cafetería', 'Bebidas', 'Cafetería fría', 'Té'];
 
 
 function saveAllTables() {
-    db.ref('tables').set(STATE.tables || []).catch(function(e){ console.error(e); alert('Error al guardar mesas: ' + e.message); });
+    var tablesObj = {};
+    STATE.tables.forEach(function(t) { tablesObj[t.id] = t; });
+    db.ref('tables').set(tablesObj).catch(function(e){ console.error(e); alert('Error al guardar mesas: ' + e.message); });
 }
 function saveTable(table) {
-    if (!table) return;
-    var idx = STATE.tables.findIndex(function(t) { return t.id === table.id; });
-    if (idx >= 0) {
-        db.ref('tables/' + idx).set(table).catch(function(e){ console.error(e); alert('Error al guardar mesa: ' + e.message); });
-    }
+    if (!table || !table.id) return;
+    db.ref('tables/' + table.id).set(table).catch(function(e){ console.error(e); alert('Error al guardar mesa: ' + e.message); });
+}
+function deleteTable(tableId) {
+    db.ref('tables/' + tableId).remove().catch(function(e){ console.error(e); alert('Error al eliminar mesa: ' + e.message); });
 }
 function saveMenu() {
     db.ref('menu').set(STATE.menu || []).catch(function(e){ console.error(e); alert('Error al guardar menú: ' + e.message); });
@@ -191,8 +203,12 @@ function init() {
     });
 
     $('btn-charge-order').addEventListener('click', function() {
+        if (STATE.isSaving) return;
         var t = getTable();
         if (t && t.order.length > 0) {
+            STATE.isSaving = true;
+            var btnCharge = $('btn-charge-order');
+            if (btnCharge) { btnCharge.disabled = true; btnCharge.textContent = 'Procesando...'; }
             var subtotal = calcTotal(t.order);
             var tipAmt = t.tip ? subtotal * 0.1 : 0;
             var total = subtotal + tipAmt;
@@ -212,15 +228,24 @@ function init() {
             };
             db.ref('history').push(rec).catch(function(e){ console.error(e); alert('Error al guardar cobro: ' + e.message); });
             t.order = []; t.tickets = []; t.status = 'free';
-            saveTable(t); closeOrder();
+            saveTable(t);
+            renderTables(); renderHistory(); updateDaily();
+            closeOrder();
+            setTimeout(function() {
+                STATE.isSaving = false;
+                if (btnCharge) { btnCharge.disabled = false; btnCharge.textContent = 'Pagado'; }
+            }, 2000);
         }
     });
 
     var btnSendKds = $('btn-send-kds');
     if (btnSendKds) {
         btnSendKds.addEventListener('click', function() {
+            if (STATE.isSaving) return;
             var t = getTable();
             if (!t || !t.order) return;
+            STATE.isSaving = true;
+            btnSendKds.disabled = true;
             var sentAny = false;
             var now = Date.now();
             if (!t.tickets) t.tickets = [];
@@ -245,6 +270,7 @@ function init() {
                 if (CURRENT_ROLE !== 'barista') renderTables();
             }
             closeOrder();
+            setTimeout(function() { STATE.isSaving = false; btnSendKds.disabled = false; }, 2000);
             if (sentAny) {
                 if (PrinterManager.isServer) alert('Comanda enviada a cocina e impresión encolada.');
                 else alert('Comanda enviada. La Caja principal la imprimirá.');
@@ -314,9 +340,20 @@ function init() {
         });
     }
 
+    // Firebase connection status
+    db.ref('.info/connected').on('value', function(snap) {
+        STATE.isConnected = snap.val() === true;
+        var indicator = $('connection-status');
+        if (indicator) {
+            indicator.textContent = STATE.isConnected ? '● En línea' : '● Sin conexión';
+            indicator.style.color = STATE.isConnected ? 'var(--success)' : 'var(--danger)';
+        }
+    });
+
     // Firebase Listeners
     db.ref('tables').on('value', function(snapshot) {
-        var rawTables = Object.values(snapshot.val() || {});
+        var rawVal = snapshot.val() || {};
+        var rawTables = Object.values(rawVal);
         STATE.tables = rawTables.map(function(t) {
             if (t.order && !Array.isArray(t.order)) t.order = Object.values(t.order);
             if (!t.order) t.order = [];
@@ -405,17 +442,14 @@ function showConfirm(msg, cb) {
 
 function applyRole() {
     var sidebar = $('sidebar');
-    var bottomNav = $('bottom-nav');
     if (CURRENT_ROLE === 'barista') {
         if (sidebar) sidebar.style.display = 'none';
-        if (bottomNav) bottomNav.style.display = 'none';
         qsa('.view').forEach(function(v) { v.classList.remove('active'); });
         var viewKds = $('view-kds');
         if (viewKds) viewKds.classList.add('active');
         renderKDS();
     } else {
         if (sidebar) sidebar.style.display = 'flex';
-        if (bottomNav) bottomNav.style.display = 'flex';
         qsa('.view').forEach(function(v) { v.classList.remove('active'); });
         var viewTables = $('view-tables');
         if (viewTables) viewTables.classList.add('active');
@@ -445,7 +479,7 @@ function renderTables() {
         var d = document.createElement('div');
         d.className = 'table-card' + (bandejaLista ? ' bandeja-lista' : '');
         d.setAttribute('data-status', table.status);
-        var z = (table.zone || 'salon').toLowerCase().replace('ó', 'o');
+        var z = (table.zone || 'salon').toLowerCase().replace(/[áàä]/g,'a').replace(/[éèë]/g,'e').replace(/[íìï]/g,'i').replace(/[óòö]/g,'o').replace(/[úùü]/g,'u');
         var iconSvg = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="4" rx="1"/><path d="M5 11v6"/><path d="M19 11v6"/></svg>';
         if (z === 'terraza') {
             iconSvg = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v2"/><path d="M12 20v2"/><path d="M5 5l1.5 1.5"/><path d="M17.5 17.5L19 19"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="M5 19l1.5-1.5"/><path d="M17.5 6.5L19 5"/><circle cx="12" cy="12" r="3"/></svg>';
@@ -467,10 +501,10 @@ function renderTables() {
             if (table.status !== 'free') { alert('Mesa ocupada, no se puede eliminar.'); return; }
             showConfirm('Eliminar esta mesa?', function() {
                 STATE.tables = STATE.tables.filter(function(x) { return x.id !== table.id; });
-                saveAllTables(); renderTables();
+                deleteTable(table.id); renderTables();
             });
         });
-        var zoneKey = table.zone ? table.zone.toLowerCase().replace('ó', 'o') : 'salon';
+        var zoneKey = table.zone ? table.zone.toLowerCase().replace(/[áàä]/g,'a').replace(/[éèë]/g,'e').replace(/[íìï]/g,'i').replace(/[óòö]/g,'o').replace(/[úùü]/g,'u') : 'salon';
         var container = $('grid-' + zoneKey);
         if (container) container.appendChild(d);
     });
