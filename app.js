@@ -49,6 +49,7 @@ var STATE = {
     history: [],
     currentTableId: null,
     editingProductId: null,
+    editingTableId: null,
     isSaving: false,
     isConnected: false
 };
@@ -118,21 +119,37 @@ function init() {
 
     // Add Table
     $('btn-add-table').addEventListener('click', function() {
+        STATE.editingTableId = null;
+        $('modal-table-title').textContent = 'Nueva Mesa';
         $('input-table-name').value = '';
+        $('input-table-zone').value = 'Salón';
+        $('input-table-tip').checked = false;
         $('modal-table').classList.remove('hidden');
     });
     $('btn-modal-table-cancel').addEventListener('click', function() {
         $('modal-table').classList.add('hidden');
+        STATE.editingTableId = null;
     });
     $('btn-modal-table-save').addEventListener('click', function() {
         var name = $('input-table-name').value.trim();
         var zone = $('input-table-zone').value;
         var tip = $('input-table-tip').checked;
         if (name) {
-            STATE.tables.push({ id: genId(), name: name, zone: zone, tip: tip, status: 'free', order: [] });
-            saveAllTables();
+            if (STATE.editingTableId) {
+                var t = STATE.tables.find(function(x) { return x.id === STATE.editingTableId; });
+                if (t) {
+                    t.name = name;
+                    t.zone = zone;
+                    t.tip = tip;
+                    saveTable(t);
+                }
+            } else {
+                STATE.tables.push({ id: genId(), name: name, zone: zone, tip: tip, status: 'free', order: [] });
+                saveAllTables();
+            }
             renderTables();
             $('modal-table').classList.add('hidden');
+            STATE.editingTableId = null;
         }
     });
 
@@ -491,9 +508,19 @@ function renderTables() {
             '<div class="table-info"><div class="table-name">' + table.name + '</div>' +
             '<div class="table-amount">' + (table.status !== 'free' ? fmt(total) : 'Libre') + '</div></div>' +
             (bandejaLista ? '<div style="background:#10b981;color:#fff;font-size:0.75rem;padding:0.2rem 0.5rem;border-radius:4px;margin-top:0.5rem;text-align:center;">Bandeja Lista</div>' : '') +
-            '<div class="table-actions"><button class="btn-table-delete" data-id="' + table.id + '"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div>';
+            '<div class="table-actions"><button class="btn-table-edit" data-id="' + table.id + '"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button class="btn-table-delete" data-id="' + table.id + '"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div>';
         d.addEventListener('click', function(e) {
-            if (!e.target.closest('.btn-table-delete')) openOrder(table.id);
+            if (!e.target.closest('.btn-table-delete') && !e.target.closest('.btn-table-edit')) openOrder(table.id);
+        });
+        var edit = d.querySelector('.btn-table-edit');
+        edit.addEventListener('click', function(e) {
+            e.stopPropagation();
+            STATE.editingTableId = table.id;
+            $('modal-table-title').textContent = 'Editar Mesa';
+            $('input-table-name').value = table.name;
+            $('input-table-zone').value = table.zone || 'Salón';
+            $('input-table-tip').checked = !!table.tip;
+            $('modal-table').classList.remove('hidden');
         });
         var del = d.querySelector('.btn-table-delete');
         del.addEventListener('click', function(e) {

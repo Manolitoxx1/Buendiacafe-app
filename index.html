@@ -95,9 +95,10 @@ input { font-family: inherit; }
 .table-info { text-align: center; }
 .table-name { font-weight: 600; font-size: 1.125rem; }
 .table-amount { font-size: .875rem; color: var(--text-muted); margin-top: .25rem; }
-.table-actions { position: absolute; top: .5rem; right: .5rem; display: none; }
+.table-actions { position: absolute; top: .5rem; right: .5rem; display: none; gap: .25rem; }
 .table-card:hover .table-actions { display: flex; }
-.btn-table-delete { color: var(--text-muted); background: #fff; border-radius: 50%; padding: .25rem; box-shadow: var(--shadow-sm); }
+.btn-table-edit, .btn-table-delete { color: var(--text-muted); background: #fff; border-radius: 50%; padding: .25rem; box-shadow: var(--shadow-sm); transition: var(--transition); }
+.btn-table-edit:hover { color: var(--primary); }
 .btn-table-delete:hover { color: var(--danger); }
 
 .overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15,23,42,.4); backdrop-filter: blur(2px); z-index: 40; opacity: 1; transition: opacity .3s; }
