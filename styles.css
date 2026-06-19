@@ -371,9 +371,15 @@ input { font-family: inherit; }
     width: 100%;
     max-width: 1200px;
     margin: 0 auto 1.5rem auto;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    flex-shrink: 0;
 }
 .floor-plan-canvas {
     width: 100%;
+    min-width: 850px;
+    min-height: 478px;
     aspect-ratio: 16 / 9;
     background-color: #f1f5f9;
     background-image: 
@@ -385,13 +391,14 @@ input { font-family: inherit; }
     position: relative;
     overflow: hidden;
     box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+    flex-shrink: 0;
 }
 
 /* absolute positioned cards in canvas */
 .floor-plan-canvas .table-card {
     position: absolute;
     margin: 0;
-    padding: 0.5rem;
+    padding: 0.25rem;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -400,23 +407,65 @@ input { font-family: inherit; }
     border-radius: var(--radius-md);
     transition: none; /* Disable transition while dragging */
     user-select: none;
-    gap: 0.25rem;
+    gap: 0.15rem;
     touch-action: none;
 }
 .floor-plan-canvas .table-card:hover {
     transform: none;
 }
 .floor-plan-canvas .table-card .table-icon {
-    width: 32px;
-    height: 32px;
-    margin-bottom: 0.15rem;
+    width: 28px;
+    height: 28px;
+    margin-bottom: 0.1rem;
 }
 .floor-plan-canvas .table-card .table-name {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     font-weight: 700;
 }
 .floor-plan-canvas .table-card .table-amount {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
+}
+
+/* Compact controls inside canvas cards to prevent overlapping */
+.floor-plan-canvas .table-card .drag-handle {
+    top: 0.25rem;
+    left: 0.25rem;
+    padding: 0.15rem;
+    border-radius: 4px;
+    touch-action: none;
+}
+.floor-plan-canvas .table-card .drag-handle svg {
+    width: 14px;
+    height: 14px;
+}
+.floor-plan-canvas .table-card .table-actions {
+    top: 0.25rem;
+    right: 0.25rem;
+    gap: 0.2rem;
+    position: absolute;
+    display: none;
+}
+.floor-plan-canvas .table-card:hover .table-actions,
+.floor-plan-canvas .table-card.long-pressed .table-actions {
+    display: flex;
+}
+.floor-plan-canvas .table-card .btn-table-edit,
+.floor-plan-canvas .table-card .btn-table-delete {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: #fff;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
+}
+.floor-plan-canvas .table-card .btn-table-edit svg,
+.floor-plan-canvas .table-card .btn-table-delete svg {
+    width: 11px;
+    height: 11px;
 }
 
 /* Type variations */

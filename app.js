@@ -146,16 +146,16 @@ function init() {
         typeSelector.addEventListener('change', function (e) {
             var val = e.target.value;
             if (val === 'table') {
-                $('input-table-w').value = 10;
-                $('input-table-h').value = 12;
+                $('input-table-w').value = 12;
+                $('input-table-h').value = 18;
                 $('input-table-tip-container').style.display = 'block';
             } else if (val === 'bar') {
-                $('input-table-w').value = 18;
-                $('input-table-h').value = 10;
+                $('input-table-w').value = 20;
+                $('input-table-h').value = 14;
                 $('input-table-tip-container').style.display = 'block';
             } else if (val === 'sofa') {
-                $('input-table-w').value = 16;
-                $('input-table-h').value = 10;
+                $('input-table-w').value = 18;
+                $('input-table-h').value = 14;
                 $('input-table-tip-container').style.display = 'none';
             }
         });
@@ -396,8 +396,8 @@ function init() {
         $('input-table-name').value = '';
         $('input-table-zone').value = 'Salón';
         $('input-table-type').value = 'table';
-        $('input-table-w').value = 10;
-        $('input-table-h').value = 12;
+        $('input-table-w').value = 12;
+        $('input-table-h').value = 18;
         $('input-table-tip').checked = false;
         $('input-table-tip-container').style.display = 'block';
         $('modal-table').classList.remove('hidden');
@@ -411,8 +411,8 @@ function init() {
         var zone = $('input-table-zone').value;
         var tip = $('input-table-tip').checked;
         var type = $('input-table-type').value || 'table';
-        var w = parseInt($('input-table-w').value) || (type === 'bar' ? 18 : type === 'sofa' ? 16 : 10);
-        var h = parseInt($('input-table-h').value) || (type === 'bar' ? 10 : type === 'sofa' ? 10 : 12);
+        var w = parseInt($('input-table-w').value) || (type === 'bar' ? 20 : type === 'sofa' ? 18 : 12);
+        var h = parseInt($('input-table-h').value) || (type === 'bar' ? 14 : type === 'sofa' ? 14 : 18);
         
         if (name) {
             if (STATE.editingTableId) {
@@ -910,10 +910,13 @@ function renderTables() {
             '<div class="table-actions"><button class="btn-table-edit" data-id="' + table.id + '"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button class="btn-table-delete" data-id="' + table.id + '"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div>';
 
         if (zoneKey === 'salon' || zoneKey === 'terraza') {
-            var w = table.w || (type === 'bar' ? 18 : type === 'sofa' ? 16 : 10);
-            var h = table.h || (type === 'bar' ? 10 : type === 'sofa' ? 10 : 12);
-            d.style.left = (table.x || 10) + '%';
-            d.style.top = (table.y || 10) + '%';
+            var w = table.w || (type === 'bar' ? 20 : type === 'sofa' ? 18 : 12);
+            var h = table.h || (type === 'bar' ? 14 : type === 'sofa' ? 14 : 18);
+            var tx = (typeof table.x === 'number') ? table.x : 10;
+            var ty = (typeof table.y === 'number') ? table.y : 10;
+            
+            d.style.left = tx + '%';
+            d.style.top = ty + '%';
             d.style.width = w + '%';
             d.style.height = h + '%';
 
@@ -927,8 +930,8 @@ function renderTables() {
                     var rect = canvas.getBoundingClientRect();
                     var startX = e.clientX;
                     var startY = e.clientY;
-                    var initX = table.x || 10;
-                    var initY = table.y || 10;
+                    var initX = (typeof table.x === 'number') ? table.x : 10;
+                    var initY = (typeof table.y === 'number') ? table.y : 10;
                     
                     d.style.zIndex = 1000;
 
@@ -980,8 +983,8 @@ function renderTables() {
             $('input-table-name').value = table.name;
             $('input-table-zone').value = table.zone || 'Salón';
             $('input-table-type').value = type;
-            $('input-table-w').value = table.w || (type === 'bar' ? 18 : type === 'sofa' ? 16 : 10);
-            $('input-table-h').value = table.h || (type === 'bar' ? 10 : type === 'sofa' ? 10 : 12);
+            $('input-table-w').value = table.w || (type === 'bar' ? 20 : type === 'sofa' ? 18 : 12);
+            $('input-table-h').value = table.h || (type === 'bar' ? 14 : type === 'sofa' ? 14 : 18);
             $('input-table-tip').checked = !!table.tip;
             $('input-table-tip-container').style.display = (type === 'sofa') ? 'none' : 'block';
             $('modal-table').classList.remove('hidden');
