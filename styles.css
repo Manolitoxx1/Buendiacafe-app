@@ -213,3 +213,156 @@ input { font-family: inherit; }
 
 .table-card.bandeja-lista { border-color: #10b981 !important; box-shadow: 0 0 12px rgba(16,185,129,0.4); }
 .kds-item.completed { opacity: 0.5; text-decoration: line-through; }
+
+/* Drag and Drop Tables */
+.drag-handle {
+    position: absolute;
+    top: 0.5rem;
+    left: 0.5rem;
+    display: none;
+    cursor: grab;
+    padding: 0.25rem;
+    color: var(--text-muted);
+    background: #fff;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    z-index: 5;
+    transition: var(--transition);
+}
+.drag-handle:active {
+    cursor: grabbing;
+}
+.table-card:hover .drag-handle,
+.table-card.long-pressed .drag-handle {
+    display: flex;
+}
+.table-card.dragging {
+    opacity: 0.4;
+    transform: scale(0.95);
+    border-style: dashed;
+}
+.tables-grid.drag-over {
+    background: rgba(4, 120, 87, 0.05);
+    outline: 2px dashed var(--primary);
+    outline-offset: 4px;
+    border-radius: var(--radius-lg);
+    transition: var(--transition);
+}
+
+/* History Sales Deletion & Average Ticket Card */
+.btn-history-delete {
+    color: var(--text-muted);
+    background: transparent;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+}
+.btn-history-delete:hover {
+    color: var(--danger);
+    background: var(--bg-surface-hover);
+}
+
+/* Sales Bar Chart */
+.sales-chart-container {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    box-shadow: var(--shadow-sm);
+}
+.sales-chart-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 1.25rem;
+    color: var(--text-main);
+}
+.chart-bars-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+}
+.chart-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+.chart-bar-label {
+    width: 140px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.chart-bar-track {
+    flex: 1;
+    height: 18px;
+    background: var(--bg-body);
+    border-radius: 4px;
+    overflow: hidden;
+}
+.chart-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary) 0%, var(--primary-hover) 100%);
+    border-radius: 4px;
+    width: 0;
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.chart-bar-value {
+    width: 40px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--primary);
+    text-align: right;
+}
+
+/* Balance View Layout */
+.balance-container {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 2rem;
+    align-items: start;
+}
+.balance-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    box-shadow: var(--shadow-sm);
+}
+.balance-card-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 1.25rem;
+    color: var(--text-main);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.5rem;
+}
+.btn-ing-delete {
+    background: transparent;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+    color: var(--text-muted);
+}
+.btn-ing-delete:hover {
+    background: #fee2e2;
+    color: var(--danger) !important;
+}
+
+@media screen and (max-width: 1024px) {
+    .balance-container {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+}
+
