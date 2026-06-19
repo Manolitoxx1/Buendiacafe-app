@@ -991,7 +991,50 @@ function renderTables() {
             }
         }
 
+        // Long-press to show edit/delete on mobile
+        (function (card) {
+            var lpTimer = null;
+            var startX = 0, startY = 0;
+            card._wasLongPressed = false;
+
+            card.addEventListener('pointerdown', function (e) {
+                if (e.target.closest('.drag-handle') || e.target.closest('.btn-table-edit') || e.target.closest('.btn-table-delete')) return;
+                startX = e.clientX;
+                startY = e.clientY;
+                card._wasLongPressed = false;
+                lpTimer = setTimeout(function () {
+                    // Remove long-pressed from all other cards
+                    document.querySelectorAll('.table-card.long-pressed').forEach(function (c) {
+                        if (c !== card) c.classList.remove('long-pressed');
+                    });
+                    card.classList.add('long-pressed');
+                    card._wasLongPressed = true;
+                }, 600);
+            });
+
+            card.addEventListener('pointermove', function (e) {
+                if (lpTimer) {
+                    var dist = Math.sqrt(Math.pow(e.clientX - startX, 2) + Math.pow(e.clientY - startY, 2));
+                    if (dist > 10) { // Cancel only if finger moved more than 10px
+                        clearTimeout(lpTimer);
+                        lpTimer = null;
+                    }
+                }
+            });
+
+            card.addEventListener('pointerup', function () {
+                if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; }
+            });
+
+            card.addEventListener('pointercancel', function () {
+                if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; }
+            });
+        })(d);
         d.addEventListener('click', function (e) {
+            if (d._wasLongPressed) {
+                d._wasLongPressed = false;
+                return;
+            }
             if (!e.target.closest('.btn-table-delete') &&
                 !e.target.closest('.btn-table-edit') &&
                 !e.target.closest('.drag-handle')) {
@@ -1039,6 +1082,15 @@ function renderTables() {
         }
     });
 }
+
+// Dismiss long-pressed state when tapping outside a table card
+document.addEventListener('pointerdown', function (e) {
+    if (!e.target.closest('.table-card')) {
+        document.querySelectorAll('.table-card.long-pressed').forEach(function (c) {
+            c.classList.remove('long-pressed');
+        });
+    }
+});
 
 // =================== Order Panel ===================
 var orderCatFilter = 'Todos';

@@ -200,10 +200,6 @@ input { font-family: inherit; }
     .floor-plan-canvas .table-card .drag-handle {
         display: flex !important;
     }
-    /* Always show action buttons on touch devices */
-    .floor-plan-canvas .table-card .table-actions {
-        display: flex !important;
-    }
     /* Bigger touch targets on mobile */
     .floor-plan-canvas .table-card .drag-handle {
         min-width: 28px;
