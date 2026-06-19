@@ -910,8 +910,8 @@ function renderTables() {
             '<div class="table-actions"><button class="btn-table-edit" data-id="' + table.id + '"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button class="btn-table-delete" data-id="' + table.id + '"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div>';
 
         if (zoneKey === 'salon' || zoneKey === 'terraza') {
-            var w = table.w || (type === 'bar' ? 20 : type === 'sofa' ? 18 : 12);
-            var h = table.h || (type === 'bar' ? 14 : type === 'sofa' ? 14 : 18);
+            var w = table.w || (type === 'bar' ? 20 : type === 'sofa' ? 18 : 14);
+            var h = table.h || (type === 'bar' ? 10 : type === 'sofa' ? 10 : 13);
             var tx = (typeof table.x === 'number') ? table.x : 10;
             var ty = (typeof table.y === 'number') ? table.y : 10;
             
@@ -934,16 +934,32 @@ function renderTables() {
                     var initY = (typeof table.y === 'number') ? table.y : 10;
                     
                     d.style.zIndex = 1000;
+                    
+                    // Capture pointer for reliable mobile drag
+                    handle.setPointerCapture(e.pointerId);
+                    
+                    // Prevent parent scroll while dragging
+                    var viewEl = d.closest('.view');
+                    var prevOverflow = '';
+                    if (viewEl) {
+                        prevOverflow = viewEl.style.overflowY;
+                        viewEl.style.overflowY = 'hidden';
+                    }
 
                     function onPointerMove(moveEvent) {
+                        moveEvent.preventDefault();
                         var dx = moveEvent.clientX - startX;
                         var dy = moveEvent.clientY - startY;
                         
                         var pctDx = (dx / rect.width) * 100;
                         var pctDy = (dy / rect.height) * 100;
                         
-                        var newX = Math.round(Math.max(0, Math.min(100 - w, initX + pctDx)));
-                        var newY = Math.round(Math.max(0, Math.min(100 - h, initY + pctDy)));
+                        var newX = Math.max(0, Math.min(100 - w, initX + pctDx));
+                        var newY = Math.max(0, Math.min(100 - h, initY + pctDy));
+                        
+                        // Use 2 decimal places for smooth sub-pixel movement
+                        newX = Math.round(newX * 100) / 100;
+                        newY = Math.round(newY * 100) / 100;
                         
                         d.style.left = newX + '%';
                         d.style.top = newY + '%';
@@ -952,10 +968,20 @@ function renderTables() {
                         table.y = newY;
                     }
 
-                    function onPointerUp() {
+                    function onPointerUp(upEvent) {
+                        handle.releasePointerCapture(upEvent.pointerId);
                         document.removeEventListener('pointermove', onPointerMove);
                         document.removeEventListener('pointerup', onPointerUp);
                         d.style.zIndex = '';
+                        
+                        // Restore parent scroll
+                        if (viewEl) {
+                            viewEl.style.overflowY = prevOverflow;
+                        }
+                        
+                        // Round to 1 decimal for storage
+                        table.x = Math.round(table.x * 10) / 10;
+                        table.y = Math.round(table.y * 10) / 10;
                         saveTable(table);
                     }
 

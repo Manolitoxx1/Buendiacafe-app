@@ -195,6 +195,26 @@ input { font-family: inherit; }
     .view { padding: 1rem; }
     .view-title { font-size: 1.25rem; }
     .order-panel { width: 100%; }
+    
+    /* Always show drag handle on touch devices */
+    .floor-plan-canvas .table-card .drag-handle {
+        display: flex !important;
+    }
+    /* Always show action buttons on touch devices */
+    .floor-plan-canvas .table-card .table-actions {
+        display: flex !important;
+    }
+    /* Bigger touch targets on mobile */
+    .floor-plan-canvas .table-card .drag-handle {
+        min-width: 28px;
+        min-height: 28px;
+        padding: 0.25rem;
+    }
+    .floor-plan-canvas .table-card .btn-table-edit,
+    .floor-plan-canvas .table-card .btn-table-delete {
+        width: 24px;
+        height: 24px;
+    }
 }
 
 /* KDS & Roles */
@@ -372,14 +392,14 @@ input { font-family: inherit; }
     max-width: 1200px;
     margin: 0 auto 1.5rem auto;
     overflow-x: auto;
-    overflow-y: hidden;
+    overflow-y: visible;
     -webkit-overflow-scrolling: touch;
     flex-shrink: 0;
 }
 .floor-plan-canvas {
     width: 100%;
-    min-width: 850px;
-    min-height: 478px;
+    min-width: 700px;
+    min-height: 400px;
     aspect-ratio: 16 / 9;
     background-color: #f1f5f9;
     background-image: 
@@ -398,7 +418,7 @@ input { font-family: inherit; }
 .floor-plan-canvas .table-card {
     position: absolute;
     margin: 0;
-    padding: 0.25rem;
+    padding: 0.5rem;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -407,41 +427,53 @@ input { font-family: inherit; }
     border-radius: var(--radius-md);
     transition: none; /* Disable transition while dragging */
     user-select: none;
-    gap: 0.15rem;
+    gap: 0.2rem;
     touch-action: none;
 }
 .floor-plan-canvas .table-card:hover {
     transform: none;
 }
 .floor-plan-canvas .table-card .table-icon {
-    width: 28px;
-    height: 28px;
+    width: 30px;
+    height: 30px;
     margin-bottom: 0.1rem;
 }
 .floor-plan-canvas .table-card .table-name {
     font-size: 0.8rem;
     font-weight: 700;
+    line-height: 1;
 }
 .floor-plan-canvas .table-card .table-amount {
     font-size: 0.7rem;
+    line-height: 1;
 }
 
-/* Compact controls inside canvas cards to prevent overlapping */
+/* Controls inside canvas cards — positioned to avoid overlapping */
 .floor-plan-canvas .table-card .drag-handle {
-    top: 0.25rem;
-    left: 0.25rem;
-    padding: 0.15rem;
+    top: 2px;
+    left: 2px;
+    padding: 0.2rem;
     border-radius: 4px;
     touch-action: none;
+    min-width: 24px;
+    min-height: 24px;
+    display: none;
+    align-items: center;
+    justify-content: center;
 }
 .floor-plan-canvas .table-card .drag-handle svg {
     width: 14px;
     height: 14px;
 }
+.floor-plan-canvas .table-card:hover .drag-handle,
+.floor-plan-canvas .table-card.long-pressed .drag-handle {
+    display: flex;
+}
 .floor-plan-canvas .table-card .table-actions {
-    top: 0.25rem;
-    right: 0.25rem;
-    gap: 0.2rem;
+    bottom: 2px;
+    right: 2px;
+    top: auto;
+    gap: 0.15rem;
     position: absolute;
     display: none;
 }
