@@ -366,3 +366,91 @@ input { font-family: inherit; }
     }
 }
 
+/* Floor Plan Layout */
+.floor-plan-container {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto 1.5rem auto;
+}
+.floor-plan-canvas {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background-color: #f1f5f9;
+    background-image: 
+        linear-gradient(rgba(203, 213, 225, 0.4) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(203, 213, 225, 0.4) 1px, transparent 1px);
+    background-size: 2% 3.55%;
+    border: 2px solid var(--border);
+    border-radius: var(--radius-lg);
+    position: relative;
+    overflow: hidden;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+}
+
+/* absolute positioned cards in canvas */
+.floor-plan-canvas .table-card {
+    position: absolute;
+    margin: 0;
+    padding: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow-md);
+    border-radius: var(--radius-md);
+    transition: none; /* Disable transition while dragging */
+    user-select: none;
+    gap: 0.25rem;
+    touch-action: none;
+}
+.floor-plan-canvas .table-card:hover {
+    transform: none;
+}
+.floor-plan-canvas .table-card .table-icon {
+    width: 32px;
+    height: 32px;
+    margin-bottom: 0.15rem;
+}
+.floor-plan-canvas .table-card .table-name {
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+.floor-plan-canvas .table-card .table-amount {
+    font-size: 0.75rem;
+}
+
+/* Type variations */
+.table-card[data-type="bar"] {
+    border-radius: var(--radius-md);
+    border: 1px solid #047857;
+}
+.table-card[data-type="sofa"] {
+    background: #e2e8f0;
+    border: 2px solid #94a3b8;
+    color: #475569;
+    cursor: grab;
+}
+.table-card[data-type="sofa"]:active {
+    cursor: grabbing;
+}
+.table-card[data-type="sofa"] .table-status-indicator {
+    display: none;
+}
+.table-card[data-type="sofa"] .table-icon {
+    background: #cbd5e1 !important;
+    color: #475569 !important;
+}
+
+/* Zone Tabs styling */
+.zone-selector-bar .zone-tab {
+    padding: 0.5rem 1.25rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+.zone-selector-bar .zone-tab.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+}
+
+

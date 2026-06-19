@@ -1153,17 +1153,23 @@
                     </button>
                 </div>
             </header>
+            <div class="zone-selector-bar" style="display:flex; gap:0.5rem; margin-bottom:1.5rem;">
+                <button class="btn btn-outline zone-tab active" data-zone="salon" id="tab-zone-salon">Salón (Mapa)</button>
+                <button class="btn btn-outline zone-tab" data-zone="terraza" id="tab-zone-terraza">Terraza (Mapa)</button>
+                <button class="btn btn-outline zone-tab" data-zone="pendientes" id="tab-zone-pendientes">Pendientes (Lista)</button>
+            </div>
             <div id="tables-container">
-                <div class="zone-section">
-                    <h2 class="zone-title">Salón</h2>
-                    <div class="tables-grid" id="grid-salon"></div>
+                <div class="zone-section" id="zone-section-salon">
+                    <div class="floor-plan-container">
+                        <div class="floor-plan-canvas" id="canvas-salon"></div>
+                    </div>
                 </div>
-                <div class="zone-section">
-                    <h2 class="zone-title">Terraza</h2>
-                    <div class="tables-grid" id="grid-terraza"></div>
+                <div class="zone-section" id="zone-section-terraza" style="display:none;">
+                    <div class="floor-plan-container">
+                        <div class="floor-plan-canvas" id="canvas-terraza"></div>
+                    </div>
                 </div>
-                <div class="zone-section">
-                    <h2 class="zone-title">Pendientes</h2>
+                <div class="zone-section" id="zone-section-pendientes" style="display:none;">
                     <div class="tables-grid" id="grid-pendientes"></div>
                 </div>
             </div>
@@ -1216,90 +1222,149 @@
                 </div>
             </header>
             
-            <div class="balance-container">
-                <!-- Panel izquierdo: Selección e Ingreso -->
-                <div class="balance-card">
-                    <h3 class="balance-card-title">Costo de Ingredientes</h3>
-                    <div class="form-group">
-                        <label class="form-label" for="balance-product-select">Seleccionar Producto</label>
-                        <select id="balance-product-select" class="input-field">
-                            <option value="">-- Selecciona un producto --</option>
-                        </select>
-                    </div>
-                    
-                    <div id="balance-ingredients-form" style="display:none; flex-direction:column; gap:1rem; border-top:1px solid var(--border); padding-top:1.25rem; margin-top:1.25rem;">
-                        <h4 style="font-size:1rem; font-weight:600; color:var(--text-main);">Añadir Ingrediente</h4>
+            <div class="balance-tabs" style="display:flex; gap:0.5rem; margin-bottom:1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">
+                <button class="btn btn-outline balance-tab active" data-tab="ingredients" id="tab-balance-ingredients">Registro de Ingredientes</button>
+                <button class="btn btn-outline balance-tab" data-tab="recipes" id="tab-balance-recipes">Recetas por Producto</button>
+            </div>
+            
+            <!-- Sub-vista 1: Registro de Ingredientes -->
+            <div id="balance-tab-ingredients-content" class="balance-sub-view">
+                <div class="balance-container" style="grid-template-columns: 350px 1fr;">
+                    <!-- Panel izquierdo: Agregar Ingrediente -->
+                    <div class="balance-card">
+                        <h3 class="balance-card-title">Nuevo Ingrediente</h3>
                         <div class="form-group">
-                            <label class="form-label" for="balance-ing-name">Nombre del Ingrediente</label>
-                            <input type="text" id="balance-ing-name" class="input-field" placeholder="Ej: Café en grano, Leche, Rebanada de pan...">
+                            <label class="form-label" for="reg-ing-name">Nombre del Ingrediente</label>
+                            <input type="text" id="reg-ing-name" class="input-field" placeholder="Ej: Café en grano, Leche...">
                         </div>
                         <div class="form-row">
-                            <div class="form-group" style="margin-bottom:0;">
-                                <label class="form-label" for="balance-ing-qty">Cantidad</label>
-                                <input type="number" id="balance-ing-qty" class="input-field" placeholder="10" min="0" step="any">
-                            </div>
-                            <div class="form-group" style="margin-bottom:0;">
-                                <label class="form-label" for="balance-ing-unit">Unidad</label>
-                                <select id="balance-ing-unit" class="input-field">
+                            <div class="form-group">
+                                <label class="form-label" for="reg-ing-unit">Unidad Base</label>
+                                <select id="reg-ing-unit" class="input-field">
                                     <option value="g">Gramos (g)</option>
                                     <option value="ml">Mililitros (ml)</option>
                                     <option value="oz">Onzas (oz)</option>
                                     <option value="unidades">Entero/Unidad</option>
                                 </select>
                             </div>
+                            <div class="form-group">
+                                <label class="form-label" for="reg-ing-cost">Costo por Unidad ($)</label>
+                                <input type="number" id="reg-ing-cost" class="input-field" placeholder="0.05" min="0" step="any">
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label class="form-label" for="balance-ing-cost">Costo de la cantidad ingresada ($)</label>
-                            <input type="number" id="balance-ing-cost" class="input-field" placeholder="0.00" min="0" step="0.01">
-                        </div>
-                        <button class="btn btn-primary" id="btn-add-ingredient" style="width:100%; justify-content:center;">Agregar Ingrediente</button>
+                        <button class="btn btn-primary" id="btn-reg-add-ingredient" style="width:100%; justify-content:center; margin-top: 1rem;">Registrar Ingrediente</button>
                     </div>
-                </div>
-                
-                <!-- Panel derecho: Tabla y Resumen -->
-                <div class="balance-details" style="display:flex; flex-direction:column; gap:1.5rem; flex:1;">
-                    <!-- Resumen monetario -->
-                    <div id="balance-summary-cards" style="display:none; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:1rem; width:100%;">
-                        <div class="summary-card">
-                            <div class="summary-title">Precio de Venta</div>
-                            <div class="summary-value" id="balance-prod-price" style="color:var(--text-main); font-size:1.35rem;">$0.00</div>
+                    <!-- Panel derecho: Listado de Ingredientes -->
+                    <div class="balance-card" style="flex:1;">
+                        <h3 class="balance-card-title">Ingredientes Registrados</h3>
+                        <div class="search-wrapper" style="margin-bottom:1rem;">
+                            <input type="text" id="reg-ing-search" class="input-field" placeholder="Buscar ingrediente por nombre...">
                         </div>
-                        <div class="summary-card">
-                            <div class="summary-title">Costo Receta</div>
-                            <div class="summary-value" id="balance-total-cost" style="font-size:1.35rem;">$0.00</div>
-                        </div>
-                        <div class="summary-card">
-                            <div class="summary-title">Margen Ganancia</div>
-                            <div class="summary-value" id="balance-margin" style="font-size:1.35rem;">$0.00</div>
-                        </div>
-                    </div>
-                    
-                    <!-- Tabla de desglose -->
-                    <div class="summary-card" id="balance-list-card" style="display:none; flex:1; width:100%;">
-                        <h3 style="margin-bottom:1rem; border-bottom:1px solid var(--border); padding-bottom:0.5rem; font-size:1rem; font-weight:600; color:var(--text-muted);">Desglose de la Receta</h3>
                         <div style="overflow-x:auto;">
-                            <table style="width:100%; border-collapse:collapse; font-size:0.9rem;" id="balance-ingredients-table">
+                            <table style="width:100%; border-collapse:collapse; font-size:0.9rem;" id="reg-ingredients-table">
                                 <thead>
                                     <tr style="border-bottom: 2px solid var(--border); text-align:left;">
-                                        <th style="padding:0.75rem 0.5rem; font-weight:600; color:var(--text-muted);">Ingrediente</th>
-                                        <th style="padding:0.75rem 0.5rem; text-align:right; font-weight:600; color:var(--text-muted);">Cantidad</th>
-                                        <th style="padding:0.75rem 0.5rem; text-align:right; font-weight:600; color:var(--text-muted);">Costo</th>
-                                        <th style="padding:0.75rem 0.5rem; text-align:center; width:50px; font-weight:600; color:var(--text-muted);">Borrar</th>
+                                        <th style="padding:0.75rem 0.5rem; font-weight:600; color:var(--text-muted);">Nombre</th>
+                                        <th style="padding:0.75rem 0.5rem; font-weight:600; color:var(--text-muted);">Unidad Base</th>
+                                        <th style="padding:0.75rem 0.5rem; text-align:right; font-weight:600; color:var(--text-muted);">Costo Unitario</th>
+                                        <th style="padding:0.75rem 0.5rem; text-align:center; width:120px; font-weight:600; color:var(--text-muted);">Acciones</th>
                                     </tr>
                                 </thead>
-                                <tbody id="balance-ingredients-list-body">
+                                <tbody id="reg-ingredients-list-body">
                                 </tbody>
                             </table>
                         </div>
                     </div>
+                </div>
+            </div>
+            
+            <!-- Sub-vista 2: Recetas por Producto -->
+            <div id="balance-tab-recipes-content" class="balance-sub-view" style="display:none;">
+                <div class="balance-container" style="grid-template-columns: 350px 1fr;">
+                    <!-- Panel izquierdo: Selección de Producto e Ingrediente -->
+                    <div class="balance-card">
+                        <h3 class="balance-card-title">Receta del Producto</h3>
+                        <div class="form-group">
+                            <label class="form-label" for="recipe-cat-select">Categoría</label>
+                            <select id="recipe-cat-select" class="input-field">
+                                <option value="">-- Categoria --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="recipe-prod-select">Producto</label>
+                            <select id="recipe-prod-select" class="input-field">
+                                <option value="">-- Elige Producto --</option>
+                            </select>
+                        </div>
+                        
+                        <div id="recipe-ingredient-add-form" style="display:none; flex-direction:column; gap:1rem; border-top:1px solid var(--border); padding-top:1.25rem; margin-top:1.25rem;">
+                            <h4 style="font-size:1rem; font-weight:600; color:var(--text-main);">Agregar a la Receta</h4>
+                            <div class="form-group">
+                                <label class="form-label" for="recipe-ing-select">Seleccionar Ingrediente Base</label>
+                                <select id="recipe-ing-select" class="input-field">
+                                    <option value="">-- Elige Ingrediente --</option>
+                                </select>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group" style="margin-bottom:0;">
+                                    <label class="form-label" for="recipe-ing-qty">Cantidad</label>
+                                    <input type="number" id="recipe-ing-qty" class="input-field" placeholder="15" min="0" step="any">
+                                </div>
+                                <div class="form-group" style="margin-bottom:0;">
+                                    <label class="form-label">Unidad</label>
+                                    <input type="text" id="recipe-ing-unit-display" class="input-field" readonly style="background:#cbd5e1; opacity:0.8;">
+                                </div>
+                            </div>
+                            <button class="btn btn-primary" id="btn-recipe-add-ingredient" style="width:100%; justify-content:center; margin-top:1rem;">Agregar a Receta</button>
+                        </div>
+                    </div>
                     
-                    <!-- Estado vacío -->
-                    <div class="summary-card" id="balance-empty-state" style="text-align:center; padding:5rem 2rem; color:var(--text-muted); width:100%;">
-                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:1rem; opacity:0.5; color:var(--primary); display:block; margin-left:auto; margin-right:auto;">
-                            <line x1="12" y1="1" x2="12" y2="23"></line>
-                            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-                        </svg>
-                        <p style="font-weight:500;">Selecciona un producto a la izquierda para empezar a ver y calcular su balance de costos.</p>
+                    <!-- Panel derecho: Resumen y Listado de Receta -->
+                    <div class="balance-details" style="display:flex; flex-direction:column; gap:1.5rem; flex:1;">
+                        <!-- Resumen monetario -->
+                        <div id="recipe-summary-cards" style="display:none; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:1rem; width:100%;">
+                            <div class="summary-card">
+                                <div class="summary-title">Precio de Venta</div>
+                                <div class="summary-value" id="recipe-prod-price" style="color:var(--text-main); font-size:1.35rem;">$0.00</div>
+                            </div>
+                            <div class="summary-card">
+                                <div class="summary-title">Costo Receta</div>
+                                <div class="summary-value" id="recipe-total-cost" style="font-size:1.35rem;">$0.00</div>
+                            </div>
+                            <div class="summary-card">
+                                <div class="summary-title">Margen Ganancia</div>
+                                <div class="summary-value" id="recipe-margin" style="font-size:1.35rem;">$0.00</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Tabla de Receta -->
+                        <div class="summary-card" id="recipe-list-card" style="display:none; flex:1; width:100%;">
+                            <h3 style="margin-bottom:1rem; border-bottom:1px solid var(--border); padding-bottom:0.5rem; font-size:1rem; font-weight:600; color:var(--text-muted);">Ingredientes en la Receta</h3>
+                            <div style="overflow-x:auto;">
+                                <table style="width:100%; border-collapse:collapse; font-size:0.9rem;" id="recipe-ingredients-table">
+                                    <thead>
+                                        <tr style="border-bottom: 2px solid var(--border); text-align:left;">
+                                            <th style="padding:0.75rem 0.5rem; font-weight:600; color:var(--text-muted);">Ingrediente</th>
+                                            <th style="padding:0.75rem 0.5rem; text-align:right; font-weight:600; color:var(--text-muted);">Cantidad</th>
+                                            <th style="padding:0.75rem 0.5rem; text-align:right; font-weight:600; color:var(--text-muted);">Costo Unitario</th>
+                                            <th style="padding:0.75rem 0.5rem; text-align:right; font-weight:600; color:var(--text-muted);">Subtotal Costo</th>
+                                            <th style="padding:0.75rem 0.5rem; text-align:center; width:50px; font-weight:600; color:var(--text-muted);">Borrar</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="recipe-ingredients-list-body">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <!-- Estado vacío -->
+                        <div class="summary-card" id="recipe-empty-state" style="text-align:center; padding:5rem 2rem; color:var(--text-muted); width:100%;">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:1rem; opacity:0.5; color:var(--primary); display:block; margin-left:auto; margin-right:auto;">
+                                <line x1="12" y1="1" x2="12" y2="23"></line>
+                                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                            </svg>
+                            <p style="font-weight:500;">Selecciona una categoría y producto a la izquierda para empezar a ver y calcular su receta.</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1443,15 +1508,27 @@
         <div class="modal-backdrop"></div>
         <div class="modal-content modal-sm">
             <h3 class="modal-title" id="modal-table-title">Nueva Mesa</h3>
-            <div class="form-group"><label class="form-label" for="input-table-name">Nombre de la mesa</label><input
-                    type="text" id="input-table-name" class="input-field" placeholder="Ej: Mesa 1, Terraza 3..."></div>
+            <div class="form-group"><label class="form-label" for="input-table-name">Nombre del Elemento</label><input
+                    type="text" id="input-table-name" class="input-field" placeholder="Ej: Mesa 1, Barra 2..."></div>
             <div class="form-group"><label class="form-label" for="input-table-zone">Zona</label><select
                     id="input-table-zone" class="input-field">
                     <option value="Salón">Salón</option>
                     <option value="Terraza">Terraza</option>
                     <option value="Pendientes">Pendientes</option>
                 </select></div>
-            <div class="form-group"><label
+            <div class="form-group"><label class="form-label" for="input-table-type">Tipo de Elemento</label><select
+                    id="input-table-type" class="input-field">
+                    <option value="table">Mesa (Cuadrada)</option>
+                    <option value="bar">Barra (Rectangular)</option>
+                    <option value="sofa">Sillón (Decorativo)</option>
+                </select></div>
+            <div class="form-row">
+                <div class="form-group"><label class="form-label" for="input-table-w">Ancho (%)</label><input
+                        type="number" id="input-table-w" class="input-field" placeholder="10" min="4" max="50" step="1"></div>
+                <div class="form-group"><label class="form-label" for="input-table-h">Alto (%)</label><input
+                        type="number" id="input-table-h" class="input-field" placeholder="10" min="4" max="50" step="1"></div>
+            </div>
+            <div class="form-group" id="input-table-tip-container"><label
                     style="display:flex; align-items:center; gap:.5rem; font-weight:500; cursor:pointer;"><input
                         type="checkbox" id="input-table-tip"> Incluir propina automática (10%)</label></div>
             <div class="modal-actions"><button class="btn-ghost" id="btn-modal-table-cancel">Cancelar</button><button
@@ -1482,6 +1559,37 @@
             <div class="modal-actions"><button class="btn btn-ghost"
                     id="btn-modal-product-cancel">Cancelar</button><button class="btn btn-primary"
                     id="btn-modal-product-save">Guardar</button></div>
+        </div>
+    </div>
+
+    <!-- Modal para Editar Ingrediente Base -->
+    <div id="modal-ingredient" class="modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content modal-sm">
+            <h3 class="modal-title" id="modal-ingredient-title">Editar Ingrediente</h3>
+            <div class="form-group">
+                <label class="form-label" for="input-ingredient-name">Nombre del Ingrediente</label>
+                <input type="text" id="input-ingredient-name" class="input-field" placeholder="Ej: Café en grano, Leche...">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label" for="input-ingredient-unit">Unidad Base</label>
+                    <select id="input-ingredient-unit" class="input-field">
+                        <option value="g">Gramos (g)</option>
+                        <option value="ml">Mililitros (ml)</option>
+                        <option value="oz">Onzas (oz)</option>
+                        <option value="unidades">Entero/Unidad</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="input-ingredient-cost">Costo x Unidad ($)</label>
+                    <input type="number" id="input-ingredient-cost" class="input-field" placeholder="0.05" min="0" step="any">
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-ghost" id="btn-modal-ingredient-cancel">Cancelar</button>
+                <button class="btn btn-primary" id="btn-modal-ingredient-save">Guardar</button>
+            </div>
         </div>
     </div>
 
