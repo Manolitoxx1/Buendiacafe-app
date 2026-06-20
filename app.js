@@ -145,18 +145,29 @@ function init() {
     if (typeSelector) {
         typeSelector.addEventListener('change', function (e) {
             var val = e.target.value;
-            if (val === 'table') {
-                $('input-table-w').value = 12;
-                $('input-table-h').value = 18;
+            var whRow = $('input-table-wh-row');
+            var radiusRow = $('input-table-radius-row');
+            if (val === 'round') {
+                if (whRow) whRow.style.display = 'none';
+                if (radiusRow) radiusRow.style.display = 'block';
+                $('input-table-radius').value = 10;
                 $('input-table-tip-container').style.display = 'block';
-            } else if (val === 'bar') {
-                $('input-table-w').value = 20;
-                $('input-table-h').value = 14;
-                $('input-table-tip-container').style.display = 'block';
-            } else if (val === 'sofa') {
-                $('input-table-w').value = 18;
-                $('input-table-h').value = 14;
-                $('input-table-tip-container').style.display = 'none';
+            } else {
+                if (whRow) whRow.style.display = 'flex';
+                if (radiusRow) radiusRow.style.display = 'none';
+                if (val === 'table') {
+                    $('input-table-w').value = 12;
+                    $('input-table-h').value = 18;
+                    $('input-table-tip-container').style.display = 'block';
+                } else if (val === 'bar') {
+                    $('input-table-w').value = 20;
+                    $('input-table-h').value = 14;
+                    $('input-table-tip-container').style.display = 'block';
+                } else if (val === 'sofa') {
+                    $('input-table-w').value = 18;
+                    $('input-table-h').value = 14;
+                    $('input-table-tip-container').style.display = 'none';
+                }
             }
         });
     }
@@ -400,6 +411,10 @@ function init() {
         $('input-table-h').value = 18;
         $('input-table-tip').checked = false;
         $('input-table-tip-container').style.display = 'block';
+        var whRow = $('input-table-wh-row');
+        var radiusRow = $('input-table-radius-row');
+        if (whRow) whRow.style.display = 'flex';
+        if (radiusRow) radiusRow.style.display = 'none';
         $('modal-table').classList.remove('hidden');
     });
     $('btn-modal-table-cancel').addEventListener('click', function () {
@@ -411,8 +426,16 @@ function init() {
         var zone = $('input-table-zone').value;
         var tip = $('input-table-tip').checked;
         var type = $('input-table-type').value || 'table';
-        var w = parseInt($('input-table-w').value) || (type === 'bar' ? 20 : type === 'sofa' ? 18 : 12);
-        var h = parseInt($('input-table-h').value) || (type === 'bar' ? 14 : type === 'sofa' ? 14 : 18);
+        var w, h, radius;
+        if (type === 'round') {
+            radius = parseInt($('input-table-radius').value) || 10;
+            w = radius * 2;
+            h = w;
+        } else {
+            w = parseInt($('input-table-w').value) || (type === 'bar' ? 20 : type === 'sofa' ? 18 : 12);
+            h = parseInt($('input-table-h').value) || (type === 'bar' ? 14 : type === 'sofa' ? 14 : 18);
+            radius = null;
+        }
         
         if (name) {
             if (STATE.editingTableId) {
@@ -424,12 +447,14 @@ function init() {
                     t.type = type;
                     t.w = w;
                     t.h = h;
+                    if (type === 'round') t.radius = radius;
+                    else delete t.radius;
                     saveTable(t);
                 }
             } else {
                 var rx = Math.round(10 + Math.random() * 30);
                 var ry = Math.round(10 + Math.random() * 30);
-                STATE.tables.push({ 
+                var newTable = { 
                     id: genId(), 
                     name: name, 
                     zone: zone, 
@@ -441,7 +466,9 @@ function init() {
                     y: ry,
                     status: 'free', 
                     order: [] 
-                });
+                };
+                if (type === 'round') newTable.radius = radius;
+                STATE.tables.push(newTable);
                 saveAllTables();
             }
             renderTables();
@@ -666,9 +693,12 @@ function init() {
         var savedIsServer = localStorage.getItem('fudo_is_server') === 'true';
         PrinterManager.isServer = savedIsServer;
         chkIsServer.checked = savedIsServer;
+        document.body.classList.toggle('is-caja', savedIsServer);
         chkIsServer.addEventListener('change', function (e) {
             PrinterManager.isServer = e.target.checked;
             localStorage.setItem('fudo_is_server', e.target.checked);
+            document.body.classList.toggle('is-caja', e.target.checked);
+            renderTables();
         });
     }
 
@@ -831,28 +861,53 @@ function applyRole() {
 function renderTables() {
     var canvasSalon = $('canvas-salon');
     var canvasTerraza = $('canvas-terraza');
+    var gridSalon = $('grid-salon');
+    var gridTerraza = $('grid-terraza');
     var gridPendientes = $('grid-pendientes');
     
     if (canvasSalon) canvasSalon.innerHTML = '';
     if (canvasTerraza) canvasTerraza.innerHTML = '';
+    if (gridSalon) gridSalon.innerHTML = '';
+    if (gridTerraza) gridTerraza.innerHTML = '';
     if (gridPendientes) gridPendientes.innerHTML = '';
     
+    var isCaja = PrinterManager.isServer;
+    document.body.classList.toggle('is-caja', isCaja);
+    
+    var tabSalon = $('tab-zone-salon');
+    var tabTerraza = $('tab-zone-terraza');
+    if (tabSalon && tabTerraza) {
+        if (isCaja) {
+            tabSalon.textContent = 'Salón (Mapa)';
+            tabTerraza.textContent = 'Terraza (Mapa)';
+        } else {
+            tabSalon.textContent = 'Salón';
+            tabTerraza.textContent = 'Terraza';
+        }
+    }
+
     var salonCount = 0;
     var terrazaCount = 0;
     var pendientesCount = 0;
 
     STATE.tables.forEach(function (table) {
+        var type = table.type || 'table';
+        if (type === 'sofa' && !isCaja) return;
         var zoneKey = (table.zone || 'salon').toLowerCase().replace(/[áàä]/g, 'a').replace(/[éèë]/g, 'e').replace(/[íìï]/g, 'i').replace(/[óòö]/g, 'o').replace(/[úùü]/g, 'u');
         if (zoneKey === 'salon') salonCount++;
         else if (zoneKey === 'terraza') terrazaCount++;
         else if (zoneKey === 'pendientes') pendientesCount++;
     });
 
-    if (activeZone === 'salon' && salonCount === 0 && canvasSalon) {
-        canvasSalon.innerHTML = '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:var(--text-muted);width:100%;">Toca "Nueva Mesa" para empezar en el Salón</div>';
+    if (activeZone === 'salon' && salonCount === 0) {
+        var msg = '<div style="' + (isCaja ? 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);' : 'grid-column:1/-1;padding:3rem;') + 'text-align:center;color:var(--text-muted);width:100%;">Toca "Nueva Mesa" para empezar en el Salón</div>';
+        if (isCaja && canvasSalon) canvasSalon.innerHTML = msg;
+        else if (!isCaja && gridSalon) gridSalon.innerHTML = msg;
     }
-    if (activeZone === 'terraza' && terrazaCount === 0 && canvasTerraza) {
-        canvasTerraza.innerHTML = '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:var(--text-muted);width:100%;">Toca "Nueva Mesa" para empezar en la Terraza</div>';
+    if (activeZone === 'terraza' && terrazaCount === 0) {
+        var msg = '<div style="' + (isCaja ? 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);' : 'grid-column:1/-1;padding:3rem;') + 'text-align:center;color:var(--text-muted);width:100%;">Toca "Nueva Mesa" para empezar en la Terraza</div>';
+        if (isCaja && canvasTerraza) canvasTerraza.innerHTML = msg;
+        else if (!isCaja && gridTerraza) gridTerraza.innerHTML = msg;
     }
     if (activeZone === 'pendientes' && pendientesCount === 0 && gridPendientes) {
         gridPendientes.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text-muted);padding:3rem;">No hay elementos pendientes</div>';
@@ -860,6 +915,8 @@ function renderTables() {
 
     STATE.tables.forEach(function (table) {
         var zoneKey = (table.zone || 'salon').toLowerCase().replace(/[áàä]/g, 'a').replace(/[éèë]/g, 'e').replace(/[íìï]/g, 'i').replace(/[óòö]/g, 'o').replace(/[úùü]/g, 'u');
+        var type = table.type || 'table';
+        if (type === 'sofa' && !isCaja) return;
         
         if (zoneKey !== activeZone) return;
 
@@ -881,6 +938,8 @@ function renderTables() {
             iconSvg = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10v8a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-8"/><path d="M2 14v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4"/><path d="M6 14h12"/></svg>';
         } else if (type === 'bar') {
             iconSvg = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M8 18v2"/><path d="M16 18v2"/></svg>';
+        } else if (type === 'round') {
+            iconSvg = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>';
         } else {
             if (zoneKey === 'terraza') {
                 iconSvg = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v2"/><path d="M12 20v2"/><path d="M5 5l1.5 1.5"/><path d="M17.5 17.5L19 19"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="M5 19l1.5-1.5"/><path d="M17.5 6.5L19 5"/><circle cx="12" cy="12" r="3"/></svg>';
@@ -909,9 +968,17 @@ function renderTables() {
             (bandejaLista ? '<div style="background:#10b981;color:#fff;font-size:0.7rem;padding:0.15rem 0.35rem;border-radius:4px;margin-top:0.25rem;text-align:center;">Bandeja Lista</div>' : '') +
             '<div class="table-actions"><button class="btn-table-edit" data-id="' + table.id + '"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button class="btn-table-delete" data-id="' + table.id + '"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div>';
 
-        if (zoneKey === 'salon' || zoneKey === 'terraza') {
-            var w = table.w || (type === 'bar' ? 20 : type === 'sofa' ? 18 : 14);
-            var h = table.h || (type === 'bar' ? 10 : type === 'sofa' ? 10 : 13);
+        if (isCaja && (zoneKey === 'salon' || zoneKey === 'terraza')) {
+            var w, h;
+            if (type === 'round') {
+                var radius = table.radius || 10;
+                w = radius * 2;
+                h = w;
+                d.style.borderRadius = '50%';
+            } else {
+                w = table.w || (type === 'bar' ? 20 : type === 'sofa' ? 18 : 14);
+                h = table.h || (type === 'bar' ? 10 : type === 'sofa' ? 10 : 13);
+            }
             var tx = (typeof table.x === 'number') ? table.x : 10;
             var ty = (typeof table.y === 'number') ? table.y : 10;
             
@@ -1052,8 +1119,18 @@ function renderTables() {
             $('input-table-name').value = table.name;
             $('input-table-zone').value = table.zone || 'Salón';
             $('input-table-type').value = type;
-            $('input-table-w').value = table.w || (type === 'bar' ? 20 : type === 'sofa' ? 18 : 12);
-            $('input-table-h').value = table.h || (type === 'bar' ? 14 : type === 'sofa' ? 14 : 18);
+            var whRow = $('input-table-wh-row');
+            var radiusRow = $('input-table-radius-row');
+            if (type === 'round') {
+                if (whRow) whRow.style.display = 'none';
+                if (radiusRow) radiusRow.style.display = 'block';
+                $('input-table-radius').value = table.radius || 10;
+            } else {
+                if (whRow) whRow.style.display = 'flex';
+                if (radiusRow) radiusRow.style.display = 'none';
+                $('input-table-w').value = table.w || (type === 'bar' ? 20 : type === 'sofa' ? 18 : 12);
+                $('input-table-h').value = table.h || (type === 'bar' ? 14 : type === 'sofa' ? 14 : 18);
+            }
             $('input-table-tip').checked = !!table.tip;
             $('input-table-tip-container').style.display = (type === 'sofa') ? 'none' : 'block';
             $('modal-table').classList.remove('hidden');
@@ -1074,9 +1151,17 @@ function renderTables() {
         });
 
         if (zoneKey === 'salon') {
-            if (canvasSalon) canvasSalon.appendChild(d);
+            if (isCaja) {
+                if (canvasSalon) canvasSalon.appendChild(d);
+            } else {
+                if (gridSalon) gridSalon.appendChild(d);
+            }
         } else if (zoneKey === 'terraza') {
-            if (canvasTerraza) canvasTerraza.appendChild(d);
+            if (isCaja) {
+                if (canvasTerraza) canvasTerraza.appendChild(d);
+            } else {
+                if (gridTerraza) gridTerraza.appendChild(d);
+            }
         } else if (zoneKey === 'pendientes') {
             if (gridPendientes) gridPendientes.appendChild(d);
         }
