@@ -987,7 +987,6 @@ function renderTables() {
                     ratio = canvas.clientWidth / canvas.clientHeight;
                 }
                 h = w * ratio;
-                d.style.borderRadius = '50%';
             } else {
                 w = table.w || (type === 'bar' ? 20 : type === 'sofa' ? 18 : 14);
                 h = table.h || (type === 'bar' ? 10 : type === 'sofa' ? 10 : 13);

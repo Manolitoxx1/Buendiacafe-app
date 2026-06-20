@@ -518,27 +518,40 @@ input { font-family: inherit; }
     color: #475569 !important;
 }
 .table-card[data-type="round"] {
-    border: 2px solid #6366f1;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
 }
-.table-card[data-type="round"][data-status="free"] {
-    border-color: var(--status-free);
-}
-.table-card[data-type="round"][data-status="occupied"] {
-    border-color: var(--status-occupied);
-}
-.floor-plan-canvas .table-card[data-type="round"] {
-    border-radius: 50%;
-    overflow: visible;
-}
-.floor-plan-canvas .table-card[data-type="round"]::before {
+.table-card[data-type="round"]::before {
     content: '';
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background: transparent;
+    border-radius: 50%;
+    background: var(--bg-surface);
+    border: 2px solid #6366f1;
+    box-shadow: var(--shadow-sm);
     z-index: 1;
+}
+.table-card[data-type="round"][data-status="free"]::before {
+    border-color: var(--status-free);
+}
+.table-card[data-type="round"][data-status="occupied"]::before {
+    border-color: var(--status-occupied);
+}
+.table-card[data-type="round"] .table-icon,
+.table-card[data-type="round"] .table-info {
+    position: relative;
+    z-index: 2;
+}
+.floor-plan-canvas .table-card[data-type="round"] {
+    overflow: visible;
+}
+.floor-plan-canvas .table-card[data-type="round"]:hover::before,
+.floor-plan-canvas .table-card[data-type="round"].long-pressed::before {
+    box-shadow: var(--shadow-md);
 }
 .floor-plan-canvas .table-card[data-type="round"] .table-actions {
     z-index: 6;
