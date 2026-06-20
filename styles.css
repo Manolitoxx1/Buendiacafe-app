@@ -530,6 +530,19 @@ input { font-family: inherit; }
     border-radius: 50%;
     overflow: visible;
 }
+.floor-plan-canvas .table-card[data-type="round"]::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    z-index: 1;
+}
+.floor-plan-canvas .table-card[data-type="round"] .table-actions {
+    z-index: 6;
+}
 .table-card[data-type="round"] .table-status-indicator {
     display: none;
 }
