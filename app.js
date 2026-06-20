@@ -899,18 +899,26 @@ function renderTables() {
         else if (zoneKey === 'pendientes') pendientesCount++;
     });
 
-    if (activeZone === 'salon' && salonCount === 0) {
-        var msg = '<div style="' + (isCaja ? 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);' : 'grid-column:1/-1;padding:3rem;') + 'text-align:center;color:var(--text-muted);width:100%;">Toca "Nueva Mesa" para empezar en el Salón</div>';
-        if (isCaja && canvasSalon) canvasSalon.innerHTML = msg;
-        else if (!isCaja && gridSalon) gridSalon.innerHTML = msg;
-    }
-    if (activeZone === 'terraza' && terrazaCount === 0) {
-        var msg = '<div style="' + (isCaja ? 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);' : 'grid-column:1/-1;padding:3rem;') + 'text-align:center;color:var(--text-muted);width:100%;">Toca "Nueva Mesa" para empezar en la Terraza</div>';
-        if (isCaja && canvasTerraza) canvasTerraza.innerHTML = msg;
-        else if (!isCaja && gridTerraza) gridTerraza.innerHTML = msg;
-    }
-    if (activeZone === 'pendientes' && pendientesCount === 0 && gridPendientes) {
-        gridPendientes.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text-muted);padding:3rem;">No hay elementos pendientes</div>';
+    if (isCaja) {
+        if (activeZone === 'salon' && salonCount === 0 && canvasSalon) {
+            canvasSalon.innerHTML = '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:var(--text-muted);width:100%;">Toca "Nueva Mesa" para empezar en el Salón</div>';
+        }
+        if (activeZone === 'terraza' && terrazaCount === 0 && canvasTerraza) {
+            canvasTerraza.innerHTML = '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:var(--text-muted);width:100%;">Toca "Nueva Mesa" para empezar en la Terraza</div>';
+        }
+        if (activeZone === 'pendientes' && pendientesCount === 0 && gridPendientes) {
+            gridPendientes.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text-muted);padding:3rem;">No hay elementos pendientes</div>';
+        }
+    } else {
+        if (salonCount === 0 && gridSalon) {
+            gridSalon.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text-muted);padding:2rem;">No hay mesas en el Salón</div>';
+        }
+        if (terrazaCount === 0 && gridTerraza) {
+            gridTerraza.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text-muted);padding:2rem;">No hay mesas en la Terraza</div>';
+        }
+        if (pendientesCount === 0 && gridPendientes) {
+            gridPendientes.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text-muted);padding:2rem;">No hay elementos pendientes</div>';
+        }
     }
 
     STATE.tables.forEach(function (table) {
@@ -918,7 +926,7 @@ function renderTables() {
         var type = table.type || 'table';
         if (type === 'sofa' && !isCaja) return;
         
-        if (zoneKey !== activeZone) return;
+        if (isCaja && zoneKey !== activeZone) return;
 
         var subtotal = calcTotal(table.order);
         var total = subtotal + (table.tip ? subtotal * 0.1 : 0);
@@ -973,7 +981,12 @@ function renderTables() {
             if (type === 'round') {
                 var radius = table.radius || 10;
                 w = radius * 2;
-                h = w;
+                var canvas = document.querySelector('.floor-plan-canvas');
+                var ratio = 16 / 9;
+                if (canvas && canvas.clientWidth && canvas.clientHeight) {
+                    ratio = canvas.clientWidth / canvas.clientHeight;
+                }
+                h = w * ratio;
                 d.style.borderRadius = '50%';
             } else {
                 w = table.w || (type === 'bar' ? 20 : type === 'sofa' ? 18 : 14);

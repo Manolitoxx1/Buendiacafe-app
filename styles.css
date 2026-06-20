@@ -518,15 +518,32 @@ input { font-family: inherit; }
     color: #475569 !important;
 }
 .table-card[data-type="round"] {
-    border: 1px solid #6366f1;
+    border: 2px solid #6366f1;
+}
+.table-card[data-type="round"][data-status="free"] {
+    border-color: var(--status-free);
+}
+.table-card[data-type="round"][data-status="occupied"] {
+    border-color: var(--status-occupied);
 }
 .floor-plan-canvas .table-card[data-type="round"] {
     border-radius: 50%;
-    overflow: hidden;
+    overflow: visible;
+}
+.table-card[data-type="round"] .table-status-indicator {
+    display: none;
 }
 .table-card[data-type="round"] .table-icon {
-    background: #e0e7ff !important;
-    color: #6366f1 !important;
+    background: #e0e7ff;
+    color: #6366f1;
+}
+.table-card[data-type="round"][data-status="free"] .table-icon {
+    color: var(--status-free);
+    background: #d1fae5;
+}
+.table-card[data-type="round"][data-status="occupied"] .table-icon {
+    color: var(--status-occupied);
+    background: #fef3c7;
 }
 
 /* Zone Tabs styling */
@@ -550,6 +567,39 @@ body.is-caja .grid-only {
 }
 body:not(.is-caja) .drag-handle {
     display: none !important;
+}
+
+/* Vista Unificada de Mesero (sin caja) */
+body:not(.is-caja) .zone-selector-bar {
+    display: none !important;
+}
+body:not(.is-caja) .zone-section {
+    display: block !important;
+    margin-bottom: 2.5rem;
+}
+.zone-section-header {
+    display: none;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    margin-top: 1rem;
+}
+body:not(.is-caja) .zone-section-header {
+    display: flex;
+}
+.zone-section-header h2 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--primary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+}
+.zone-section-header .zone-divider {
+    flex: 1;
+    border: none;
+    height: 2px;
+    background: var(--border);
 }
 
 
