@@ -1496,9 +1496,31 @@
             <div class="order-items-list" id="order-items-list"></div>
         </div>
         <div class="order-footer">
+            <div id="order-subtotal-row" style="display:none; justify-content:space-between; align-items:center; font-size:0.95rem; color:var(--text-muted); margin-bottom:0.25rem;">
+                <span>Subtotal</span><span id="order-subtotal">$0</span>
+            </div>
+            <div id="order-discount-row" style="display:none; justify-content:space-between; align-items:center; font-size:0.95rem; color:#dc2626; margin-bottom:0.25rem;">
+                <span>Descuento (<span id="order-discount-pct">0</span>%)</span><span id="order-discount-amount">-$0</span>
+            </div>
+            <div id="order-tip-row" style="display:none; justify-content:space-between; align-items:center; font-size:0.95rem; color:var(--primary); margin-bottom:0.25rem;">
+                <span>Propina (10%)</span><span id="order-tip-amount">$0</span>
+            </div>
             <div class="order-total-row"><span>Total</span><span class="order-total-amount"
                     id="order-total">$0.00</span></div>
             <div class="payment-selector">
+                <div style="display:flex; align-items:center; gap:.5rem; margin-bottom:.75rem; font-weight:500;">
+                    <label for="order-discount-select" style="white-space:nowrap; font-size:0.875rem;">Descuento:</label>
+                    <select id="order-discount-select" class="input-field" style="flex:1; padding:0.35rem 0.5rem; font-size:0.875rem;">
+                        <option value="0">Sin descuento</option>
+                        <option value="5">5%</option>
+                        <option value="10">10%</option>
+                        <option value="15">15%</option>
+                        <option value="20">20%</option>
+                        <option value="25">25%</option>
+                        <option value="30">30%</option>
+                        <option value="50">50%</option>
+                    </select>
+                </div>
                 <label
                     style="display:flex; align-items:center; gap:.5rem; margin-bottom:.75rem; font-weight:500; cursor:pointer;">
                     <input type="checkbox" id="order-tip-checkbox"> Incluir propina sugerida (10%)

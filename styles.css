@@ -629,3 +629,14 @@ body:not(.is-caja) .zone-section-header {
 }
 
 
+/* Round tables in grid/mobile (non-caja) mode */
+body:not(.is-caja) .table-card[data-type="round"] {
+    aspect-ratio: 1;
+    width: 160px;
+    max-width: 180px;
+    justify-self: center;
+    padding: 1rem;
+}
+body:not(.is-caja) .table-card[data-type="round"]::before {
+    border-radius: 50%;
+}

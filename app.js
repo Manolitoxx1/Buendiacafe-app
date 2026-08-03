@@ -515,6 +515,11 @@ function init() {
         if (t) { t.tip = e.target.checked; saveTable(t); renderOrderItems(); }
     });
 
+    $('order-discount-select').addEventListener('change', function (e) {
+        var t = getTable();
+        if (t) { t.discount = parseInt(e.target.value) || 0; saveTable(t); renderOrderItems(); }
+    });
+
     $('order-search').addEventListener('input', function () {
         renderOrderMenu();
     });
@@ -523,8 +528,11 @@ function init() {
         var t = getTable();
         if (t && t.order.length > 0) {
             var subtotal = calcTotal(t.order);
-            var tipAmt = t.tip ? subtotal * 0.1 : 0;
-            var total = subtotal + tipAmt;
+            var discountPct = t.discount || 0;
+            var discountAmt = subtotal * (discountPct / 100);
+            var afterDiscount = subtotal - discountAmt;
+            var tipAmt = t.tip ? afterDiscount * 0.1 : 0;
+            var total = afterDiscount + tipAmt;
             var payment = $('order-payment-method').value;
             var recItems = t.order.map(function (it) {
                 var p = STATE.menu.find(function (x) { return x.id === it.productId; });
@@ -537,6 +545,9 @@ function init() {
                     category: p ? p.category : 'General'
                 };
             });
+            if (discountPct > 0) {
+                recItems.push({ name: 'Descuento (' + discountPct + '%)', price: -discountAmt, qty: 1, subtotal: -discountAmt });
+            }
             if (t.tip) {
                 recItems.push({ name: 'Propina Sugerida (10%)', price: tipAmt, qty: 1, subtotal: tipAmt });
             }
@@ -558,8 +569,11 @@ function init() {
             var btnCharge = $('btn-charge-order');
             if (btnCharge) { btnCharge.disabled = true; btnCharge.textContent = 'Procesando...'; }
             var subtotal = calcTotal(t.order);
-            var tipAmt = t.tip ? subtotal * 0.1 : 0;
-            var total = subtotal + tipAmt;
+            var discountPct = t.discount || 0;
+            var discountAmt = subtotal * (discountPct / 100);
+            var afterDiscount = subtotal - discountAmt;
+            var tipAmt = t.tip ? afterDiscount * 0.1 : 0;
+            var total = afterDiscount + tipAmt;
             var payment = $('order-payment-method').value;
             var recItems = t.order.map(function (it) {
                 var p = STATE.menu.find(function (x) { return x.id === it.productId; });
@@ -572,6 +586,9 @@ function init() {
                     category: p ? p.category : 'General'
                 };
             });
+            if (discountPct > 0) {
+                recItems.push({ name: 'Descuento (' + discountPct + '%)', price: -discountAmt, qty: 1, subtotal: -discountAmt });
+            }
             if (t.tip) {
                 recItems.push({ name: 'Propina Sugerida (10%)', price: tipAmt, qty: 1, subtotal: tipAmt });
             }
@@ -594,10 +611,13 @@ function init() {
                 tableId: t.id, tableName: t.name, total: total,
                 paymentMethod: payment,
                 items: recItems,
-                preparationCost: preparationCost
+                preparationCost: preparationCost,
+                tipAmount: tipAmt,
+                discountPercent: discountPct,
+                discountAmount: discountAmt
             };
             db.ref('history').push(rec).catch(function (e) { console.error(e); alert('Error al guardar cobro: ' + e.message); });
-            t.order = []; t.tickets = []; t.status = 'free';
+            t.order = []; t.tickets = []; t.status = 'free'; t.discount = 0;
             saveTable(t);
             renderTables(); renderHistory(); updateDaily();
             closeOrder();
@@ -879,10 +899,21 @@ function renderTables() {
     if (tabSalon && tabTerraza) {
         if (isCaja) {
             tabSalon.textContent = 'Salón (Mapa)';
-            tabTerraza.textContent = 'Terraza (Mapa)';
+            // Hide Terraza tab in caja mode
+            tabTerraza.style.display = 'none';
+            if (activeZone === 'terraza') {
+                activeZone = 'salon';
+                tabTerraza.classList.remove('active');
+                tabSalon.classList.add('active');
+                var secTerraza = $('zone-section-terraza');
+                var secSalon = $('zone-section-salon');
+                if (secTerraza) secTerraza.style.display = 'none';
+                if (secSalon) secSalon.style.display = 'block';
+            }
         } else {
             tabSalon.textContent = 'Salón';
             tabTerraza.textContent = 'Terraza';
+            tabTerraza.style.display = '';
         }
     }
 
@@ -929,7 +960,10 @@ function renderTables() {
         if (isCaja && zoneKey !== activeZone) return;
 
         var subtotal = calcTotal(table.order);
-        var total = subtotal + (table.tip ? subtotal * 0.1 : 0);
+        var discountPct = table.discount || 0;
+        var discountAmt = subtotal * (discountPct / 100);
+        var afterDiscount = subtotal - discountAmt;
+        var total = afterDiscount + (table.tip ? afterDiscount * 0.1 : 0);
 
         var bandejaLista = table.tickets && table.tickets.some(function (tk) {
             return tk.status === 'pending' && tk.items.every(function (it) { return it.done; });
@@ -1201,6 +1235,7 @@ function openOrder(id) {
     st.textContent = t.status === 'free' ? 'Libre' : 'Ocupada';
     $('order-search').value = '';
     $('order-tip-checkbox').checked = !!t.tip;
+    $('order-discount-select').value = (t.discount || 0).toString();
     orderCatFilter = 'Todos';
     renderOrderCats();
     renderOrderMenu();
@@ -1283,6 +1318,9 @@ function renderOrderItems() {
     if (t.order.length === 0) {
         c.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:2rem;">Pedido vacio</div>';
         $('order-total').textContent = fmt(0);
+        $('order-subtotal-row').style.display = 'none';
+        $('order-discount-row').style.display = 'none';
+        $('order-tip-row').style.display = 'none';
         return;
     }
     var subtotal = 0;
@@ -1299,14 +1337,27 @@ function renderOrderItems() {
         el.querySelector('.btn-p').addEventListener('click', function () { changeQty(it.productId, 1); });
         c.appendChild(el);
     });
-    var tipAmt = t.tip ? subtotal * 0.1 : 0;
-    var total = subtotal + tipAmt;
-    if (t.tip) {
-        var el = document.createElement('div');
-        el.className = 'order-item';
-        el.innerHTML = '<div class="order-item-info"><div class="order-item-name" style="font-weight:600;color:var(--primary);">Propina Sugerida (10%)</div></div><div class="order-item-controls"><span class="item-total" style="color:var(--primary);">' + fmt(tipAmt) + '</span></div>';
-        c.appendChild(el);
-    }
+    var discountPct = t.discount || 0;
+    var discountAmt = subtotal * (discountPct / 100);
+    var afterDiscount = subtotal - discountAmt;
+    var tipAmt = t.tip ? afterDiscount * 0.1 : 0;
+    var total = afterDiscount + tipAmt;
+    
+    // Show breakdown rows in footer
+    var hasDiscount = discountPct > 0;
+    var hasTip = t.tip;
+    var showBreakdown = hasDiscount || hasTip;
+    
+    $('order-subtotal-row').style.display = showBreakdown ? 'flex' : 'none';
+    $('order-subtotal').textContent = fmt(subtotal);
+    
+    $('order-discount-row').style.display = hasDiscount ? 'flex' : 'none';
+    $('order-discount-pct').textContent = discountPct;
+    $('order-discount-amount').textContent = '-' + fmt(discountAmt);
+    
+    $('order-tip-row').style.display = hasTip ? 'flex' : 'none';
+    $('order-tip-amount').textContent = fmt(tipAmt);
+    
     $('order-total').textContent = fmt(total);
 
     var readyTks = t.tickets ? t.tickets.filter(function (tk) {
@@ -1467,10 +1518,24 @@ function renderHistory() {
         }
     });
     var peakHourStr = peakHour !== null ? peakHour + ':00 - ' + (parseInt(peakHour) + 1) + ':00' : 'N/A';
+    
+    // Calculate total tips for the period
+    var totalTips = 0;
+    list.forEach(function (h) {
+        if (typeof h.tipAmount === 'number') {
+            totalTips += h.tipAmount;
+        } else if (h.items) {
+            h.items.forEach(function (it) {
+                if (it.name === 'Propina Sugerida (10%)') {
+                    totalTips += it.subtotal;
+                }
+            });
+        }
+    });
 
     $('history-summary').innerHTML = '<div class="summary-card"><div class="summary-title">Total Recaudado</div><div class="summary-value">' + fmt(tr) + '</div></div>' +
         '<div class="summary-card"><div class="summary-title">Utilidad Real</div><div class="summary-value" style="color:var(--success);">' + realUtilityStr + '</div></div>' +
-        '<div class="summary-card"><div class="summary-title">Ventas / Comensales</div><div class="summary-value" style="font-size:1.4rem;">' + list.length + ' / ' + totalInferredPeople + ' <span style="font-size:0.75rem; color:var(--text-muted); font-weight:normal;">(inf)</span></div></div>' +
+        '<div class="summary-card"><div class="summary-title">Total Neto Propinas</div><div class="summary-value" style="font-size:1.4rem; color:#f59e0b;">' + fmt(totalTips) + '</div></div>' +
         '<div class="summary-card"><div class="summary-title">Tkt Prom. (Neto / Persona)</div><div class="summary-value" style="font-size:1.35rem;">' + fmt(ticketPromedioNeto) + ' / ' + fmt(ticketPromedioPersona) + '</div></div>' +
         '<div class="summary-card"><div class="summary-title">Hora Pico de Ventas</div><div class="summary-value" style="font-size:1.15rem; margin-top:0.35rem;">' + peakHourStr + '</div></div>' +
         '<div class="summary-card" style="grid-column:1/-1; display:flex; justify-content:space-between; flex-wrap:wrap; gap:1rem; padding:1.25rem;">' +
@@ -1495,9 +1560,20 @@ function renderHistory() {
         
         var utilityVal = (typeof r.preparationCost === 'number') ? fmt(r.total - r.preparationCost) : '-';
         
+        // Determine tip for this transaction
+        var itemTip = 0;
+        if (typeof r.tipAmount === 'number') {
+            itemTip = r.tipAmount;
+        } else if (r.items) {
+            r.items.forEach(function (it) {
+                if (it.name === 'Propina Sugerida (10%)') itemTip += it.subtotal;
+            });
+        }
+        var tipStr = itemTip > 0 ? ' &bull; Propina: <b style="color:#f59e0b;">' + fmt(itemTip) + '</b>' : '';
+        
         el.innerHTML = '<div class="history-item-info"><h4>' + r.tableName + '</h4>' +
             '<div class="history-item-date">' + d.toLocaleDateString() + ' - ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + '</div>' +
-            '<div class="history-item-details">' + ic + ' items &bull; ' + (r.paymentMethod || 'Efectivo') + ' &bull; Utilidad Real: <b>' + utilityVal + '</b></div></div>' +
+            '<div class="history-item-details">' + ic + ' items &bull; ' + (r.paymentMethod || 'Efectivo') + tipStr + ' &bull; Utilidad Real: <b>' + utilityVal + '</b></div></div>' +
             '<div style="display:flex; align-items:center; gap:0.75rem;">' +
             '<div class="history-item-total">' + fmt(r.total) + '</div>' +
             (r.firebaseKey ? '<button class="btn-history-delete" title="Eliminar Venta"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>' : '') +
