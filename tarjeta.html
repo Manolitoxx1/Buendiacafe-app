@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Buen Día Café - Mi Tarjeta Digital</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <meta name="theme-color" content="#047857">
+    <link rel="apple-touch-icon" href="icon.svg">
+    <link rel="manifest" href="manifest.json">
+
+    <style>
+        :root {
+            --primary: #047857;
+            --primary-dark: #064e3b;
+            --primary-hover: #065f46;
+            --gold: #f59e0b;
+            --gold-dark: #d97706;
+            --bg-body: #0f172a;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --radius-xl: 1.5rem;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
+        }
+
+        .app-card-wrapper {
+            width: 100%;
+            max-width: 420px;
+        }
+
+        /* CARD STYLES */
+        .card-container {
+            background: linear-gradient(145deg, #064e3b 0%, #047857 50%, #065f46 100%);
+            color: #ffffff;
+            border-radius: var(--radius-xl);
+            padding: 1.75rem;
+            box-shadow: 0 25px 30px -5px rgba(0, 0, 0, 0.5), 0 15px 15px -5px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card-container::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.08) 0%, transparent 60%);
+            pointer-events: none;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.875rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .brand-box {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .brand-icon {
+            font-size: 1.85rem;
+            background: rgba(255, 255, 255, 0.2);
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.2);
+        }
+
+        .brand-title {
+            font-weight: 800;
+            font-size: 1.25rem;
+            letter-spacing: -0.02em;
+        }
+
+        .badge-club {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: #ffffff;
+            font-weight: 800;
+            padding: 0.25rem 0.6rem;
+            border-radius: 1rem;
+            box-shadow: 0 2px 6px rgba(245, 158, 11, 0.4);
+        }
+
+        /* CUSTOMER GREETING */
+        .greeting-section {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .greeting-title {
+            font-size: 1.4rem;
+            font-weight: 800;
+            margin-bottom: 0.25rem;
+        }
+
+        .greeting-subtitle {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        /* STAMPS GRID */
+        .stamps-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 0.65rem;
+            margin-bottom: 1.5rem;
+            background: rgba(0, 0, 0, 0.22);
+            padding: 1.1rem 0.9rem;
+            border-radius: 1.25rem;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .stamp-slot {
+            aspect-ratio: 1;
+            border-radius: 50%;
+            border: 2px dashed rgba(255, 255, 255, 0.35);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            transition: var(--transition);
+        }
+
+        .stamp-slot.active {
+            background: #ffffff;
+            border-style: solid;
+            border-color: #10b981;
+            color: var(--primary);
+            box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+            transform: scale(1.06);
+        }
+
+        .stamp-slot.free-slot {
+            border-color: var(--gold);
+            background: rgba(245, 158, 11, 0.18);
+        }
+
+        .stamp-slot.free-slot.active {
+            background: linear-gradient(135deg, var(--gold) 0%, var(--gold-dark) 100%);
+            color: #ffffff;
+            border-color: #ffffff;
+        }
+
+        .stamp-icon {
+            font-size: 1.3rem;
+            line-height: 1;
+        }
+
+        .stamp-num {
+            font-size: 0.65rem;
+            font-weight: 800;
+            margin-top: 2px;
+            opacity: 0.85;
+        }
+
+        .stamp-slot.active .stamp-num {
+            color: var(--primary);
+        }
+
+        .stamp-slot.free-slot.active .stamp-num {
+            color: #ffffff;
+        }
+
+        /* REWARD BANNER */
+        .reward-banner {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: #ffffff;
+            padding: 0.875rem 1rem;
+            border-radius: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.875rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 6px 16px rgba(245, 158, 11, 0.45);
+            animation: pulseGlow 2s infinite ease-in-out;
+        }
+
+        @keyframes pulseGlow {
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.02);
+            }
+        }
+
+        /* QR CONTAINER */
+        .qr-box {
+            background: #ffffff;
+            color: #0f172a;
+            border-radius: 1.25rem;
+            padding: 1.25rem;
+            text-align: center;
+            box-shadow: 0 8px 16px -2px rgba(0, 0, 0, 0.2);
+        }
+
+        .qr-canvas-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 160px;
+            background: #ffffff;
+            padding: 0.5rem;
+            border-radius: 0.75rem;
+        }
+
+        .qr-id-text {
+            font-family: monospace;
+            font-weight: 800;
+            font-size: 1rem;
+            letter-spacing: 0.05em;
+            color: var(--primary);
+            margin-top: 0.6rem;
+        }
+
+        .qr-hint {
+            font-size: 0.78rem;
+            color: #64748b;
+            margin-top: 0.25rem;
+            font-weight: 500;
+        }
+
+        /* PWA INSTRUCTIONS */
+        .pwa-box {
+            margin-top: 1.25rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 1rem;
+            padding: 0.875rem 1rem;
+            font-size: 0.78rem;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .pwa-title {
+            font-weight: 700;
+            margin-bottom: 0.35rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .pwa-desc {
+            opacity: 0.9;
+            line-height: 1.45;
+        }
+
+        /* REGISTER FORM SCREEN */
+        .form-card {
+            background: #ffffff;
+            color: #0f172a;
+            border-radius: var(--radius-xl);
+            padding: 2rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+        }
+
+        .form-header {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .form-logo {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-title {
+            font-size: 1.35rem;
+            font-weight: 800;
+            color: #0f172a;
+        }
+
+        .form-subtitle {
+            font-size: 0.875rem;
+            color: #64748b;
+            margin-top: 0.25rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #334155;
+            margin-bottom: 0.4rem;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 0.875rem 1rem;
+            border: 1.5px solid #cbd5e1;
+            border-radius: 0.75rem;
+            font-size: 1rem;
+            font-family: inherit;
+            transition: var(--transition);
+            outline: none;
+        }
+
+        .form-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(4, 120, 87, 0.15);
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 1rem;
+            background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+            color: #ffffff;
+            font-size: 1rem;
+            font-weight: 700;
+            border: none;
+            border-radius: 0.75rem;
+            cursor: pointer;
+            transition: var(--transition);
+            box-shadow: 0 4px 12px rgba(4, 120, 87, 0.3);
+        }
+
+        .btn-submit:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn-link {
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.75rem;
+            cursor: pointer;
+            text-decoration: underline;
+            margin-top: 1rem;
+            display: block;
+            width: 100%;
+            text-align: center;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="app-card-wrapper">
+
+        <!-- PANTALLA 1: FORMULARIO DE REGISTRO / BIENVENIDA (Primera vez) -->
+        <div id="screen-register" class="form-card hidden">
+            <div class="form-header">
+                <div class="form-logo">☕</div>
+                <h1 class="form-title">Buen Día Café</h1>
+                <p class="form-subtitle">Obtén tu Tarjeta de Fidelidad Digital y acumula sellos en cada consumo.</p>
+            </div>
+            <form id="form-register">
+                <div class="form-group">
+                    <label class="form-label" for="input-name">Nombre y Apellido *</label>
+                    <input type="text" id="input-name" class="form-input" placeholder="Ej: María Pérez" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="input-phone">Teléfono / Celular *</label>
+                    <input type="tel" id="input-phone" class="form-input" placeholder="Ej: +56 9 1234 5678" required>
+                </div>
+                <button type="submit" class="btn-submit">Obtener mi Tarjeta ☕</button>
+            </form>
+        </div>
+
+        <!-- PANTALLA 2: TARJETA DIGITAL DEL CLIENTE (Instante & Siempre) -->
+        <div id="screen-card" class="card-container hidden">
+            <!-- Header -->
+            <div class="card-header">
+                <div class="brand-box">
+                    <div class="brand-icon">☕</div>
+                    <div>
+                        <div class="brand-title">Buen Día Café</div>
+                    </div>
+                </div>
+                <span class="badge-club">Club de Fidelidad</span>
+            </div>
+
+            <!-- Greeting -->
+            <div class="greeting-section">
+                <h2 id="customer-name" class="greeting-title">¡Hola, Socio!</h2>
+                <p id="customer-status" class="greeting-subtitle">Cargando tus sellos...</p>
+            </div>
+
+            <!-- Stamps Grid -->
+            <div id="stamps-grid" class="stamps-grid">
+                <!-- Se llena dinámicamente -->
+            </div>
+
+            <!-- Reward Banner -->
+            <div id="reward-banner" class="reward-banner hidden">
+                <span style="font-size:1.6rem;">🎉</span>
+                <div>
+                    <strong style="font-size:0.95rem;">¡RECOMPENSA DESBLOQUEADA!</strong>
+                    <p style="font-size:0.8rem; opacity:0.95; margin-top:2px;">Muestra este código en caja para canjear tu café gratis.</p>
+                </div>
+            </div>
+
+            <!-- QR Code Box -->
+            <div class="qr-box">
+                <div id="qr-code-container" class="qr-canvas-container"></div>
+                <div id="customer-id-text" class="qr-id-text">ID: -------</div>
+                <p class="qr-hint">Muestra este código al mozo/cajero para sumar sellos</p>
+            </div>
+
+            <!-- PWA Install Hint -->
+            <div class="pwa-box">
+                <div class="pwa-title">📱 Guarda tu tarjeta en el teléfono</div>
+                <p class="pwa-desc">
+                    <strong>En iPhone:</strong> Toca <span style="display:inline-block; transform:translateY(2px);">📤</span> en Safari y elige <em>"Agregar a Inicio"</em>.<br>
+                    <strong>En Android:</strong> Toca <span style="display:inline-block;">⋮</span> en Chrome y elige <em>"Instalar aplicación"</em>.
+                </p>
+            </div>
+
+            <button id="btn-change-user" class="btn-link">¿No eres tú? Cambiar de cuenta</button>
+        </div>
+
+    </div>
+
+    <!-- QRCode Generator Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-database-compat.js"></script>
+
+    <script>
+        // CONFIGURACIÓN DE FIREBASE
+        const firebaseConfig = {
+            apiKey: "AIzaSyBYaaBUK-Y4q60d7xALpv9Oo1iB-LjdDzI",
+            authDomain: "buen-dia-cafe.firebaseapp.com",
+            databaseURL: "https://buen-dia-cafe-default-rtdb.firebaseio.com",
+            projectId: "buen-dia-cafe",
+            storageBucket: "buen-dia-cafe.firebasestorage.app",
+            messagingSenderId: "1030229835388",
+            appId: "1:1030229835388:web:d4d190818804f3ca8353f9",
+            measurementId: "G-X2J17RETEE"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        let currentCustomerId = localStorage.getItem('buendia_customer_id') || null;
+        let customerRefListener = null;
+
+        // ELEMENTOS DEL DOM
+        const screenRegister = document.getElementById('screen-register');
+        const screenCard = document.getElementById('screen-card');
+        const formRegister = document.getElementById('form-register');
+        const inputName = document.getElementById('input-name');
+        const inputPhone = document.getElementById('input-phone');
+        const customerNameEl = document.getElementById('customer-name');
+        const customerStatusEl = document.getElementById('customer-status');
+        const stampsGridEl = document.getElementById('stamps-grid');
+        const rewardBannerEl = document.getElementById('reward-banner');
+        const qrContainerEl = document.getElementById('qr-code-container');
+        const customerIdTextEl = document.getElementById('customer-id-text');
+        const btnChangeUser = document.getElementById('btn-change-user');
+
+        // INICIALIZACIÓN
+        window.addEventListener('DOMContentLoaded', function () {
+            // Verificar si viene con ID en la URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlId = urlParams.get('id') || urlParams.get('cliente');
+
+            if (urlId) {
+                currentCustomerId = urlId;
+                localStorage.setItem('buendia_customer_id', urlId);
+            }
+
+            if (currentCustomerId) {
+                loadCustomerCard(currentCustomerId);
+            } else {
+                showRegisterScreen();
+            }
+        });
+
+        // FORMULARIO DE REGISTRO
+        formRegister.addEventListener('submit', function (e) {
+            e.preventDefault();
+            const name = inputName.value.trim();
+            const phone = inputPhone.value.trim();
+
+            if (!name || !phone) return;
+
+            // Buscar si ya existe por teléfono
+            db.ref('customers').once('value').then(function (snap) {
+                const data = snap.val() || {};
+                let foundId = null;
+
+                Object.keys(data).forEach(function (key) {
+                    if (data[key] && data[key].phone === phone) {
+                        foundId = key;
+                    }
+                });
+
+                if (foundId) {
+                    // Ya existía
+                    currentCustomerId = foundId;
+                    localStorage.setItem('buendia_customer_id', foundId);
+                    loadCustomerCard(foundId);
+                } else {
+                    // Crear nuevo socio
+                    const newId = 'c_' + Math.random().toString(36).substr(2, 7);
+                    const newCust = {
+                        id: newId,
+                        name: name,
+                        phone: phone,
+                        stamps: 0,
+                        rewardsClaimed: 0,
+                        createdAt: new Date().toISOString()
+                    };
+
+                    db.ref('customers/' + newId).set(newCust).then(function () {
+                        currentCustomerId = newId;
+                        localStorage.setItem('buendia_customer_id', newId);
+                        loadCustomerCard(newId);
+                    });
+                }
+            });
+        });
+
+        // BOTÓN CAMBIAR DE CUENTA
+        btnChangeUser.addEventListener('click', function () {
+            if (confirm('¿Deseas cerrar esta tarjeta en este teléfono?')) {
+                localStorage.removeItem('buendia_customer_id');
+                currentCustomerId = null;
+                if (customerRefListener) {
+                    db.ref('customers/' + currentCustomerId).off('value', customerRefListener);
+                }
+                showRegisterScreen();
+            }
+        });
+
+        // MOSTRAR PANTALLA DE REGISTRO
+        function showRegisterScreen() {
+            screenCard.classList.add('hidden');
+            screenRegister.classList.remove('hidden');
+        }
+
+        // CARGAR Y ESCUCHAR TARJETA EN TIEMPO REAL
+        function loadCustomerCard(customerId) {
+            screenRegister.classList.add('hidden');
+            screenCard.classList.remove('hidden');
+
+            if (customerRefListener) {
+                db.ref('customers/' + customerId).off('value');
+            }
+
+            customerRefListener = db.ref('customers/' + customerId).on('value', function (snap) {
+                const c = snap.val();
+                if (!c) {
+                    // Si fue eliminado
+                    localStorage.removeItem('buendia_customer_id');
+                    showRegisterScreen();
+                    return;
+                }
+
+                renderCardUI(c);
+            });
+        }
+
+        // RENDERIZAR TARJETA EN PANTALLA
+        function renderCardUI(c) {
+            const stamps = c.stamps || 0;
+            customerNameEl.textContent = '¡Hola, ' + (c.name || 'Socio') + '!';
+
+            if (stamps >= 10) {
+                customerStatusEl.textContent = '🎉 ¡Felicidades! Tienes un premio listo.';
+            } else {
+                const needed = 10 - stamps;
+                customerStatusEl.textContent = 'Llevas ' + stamps + ' de 10 sellos (te faltan ' + needed + ')';
+            }
+
+            customerIdTextEl.textContent = 'ID: ' + c.id;
+
+            // Grilla de Sellos
+            stampsGridEl.innerHTML = '';
+            for (let i = 1; i <= 10; i++) {
+                const slot = document.createElement('div');
+                const isActive = i <= stamps;
+                const isFreeSlot = (i === 10);
+
+                slot.className = 'stamp-slot' + (isActive ? ' active' : '') + (isFreeSlot ? ' free-slot' : '');
+                const icon = isFreeSlot ? (isActive ? '🎁' : '☕') : '☕';
+
+                slot.innerHTML = '<span class="stamp-icon">' + (isActive ? icon : '⚪') + '</span>' +
+                                 '<span class="stamp-num">' + (isFreeSlot ? 'GRATIS' : i) + '</span>';
+                stampsGridEl.appendChild(slot);
+            }
+
+            // Banner de Premio
+            if (stamps >= 10) {
+                rewardBannerEl.classList.remove('hidden');
+            } else {
+                rewardBannerEl.classList.add('hidden');
+            }
+
+            // Generar Código QR
+            qrContainerEl.innerHTML = '';
+            if (typeof QRCode !== 'undefined') {
+                new QRCode(qrContainerEl, {
+                    text: c.id,
+                    width: 150,
+                    height: 150,
+                    colorDark: '#047857',
+                    colorLight: '#ffffff',
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+            } else {
+                qrContainerEl.innerHTML = '<div style="font-family:monospace; font-size:1.2rem; font-weight:bold; color:#047857;">' + c.id + '</div>';
+            }
+        }
+    </script>
+
+</body>
+
+</html>
