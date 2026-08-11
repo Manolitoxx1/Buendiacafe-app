@@ -283,7 +283,7 @@ function init() {
         btnCloseCard.addEventListener('click', function () {
             $('view-customer-card').classList.add('hidden');
         });
-    }  });
+    }
 
     // Zone Selection Tabs for Mesas
     qsa('.zone-tab').forEach(function (tab) {
