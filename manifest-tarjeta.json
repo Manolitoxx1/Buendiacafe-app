@@ -1,0 +1,20 @@
+{
+  "name": "Mi Tarjeta Buen Día Café",
+  "short_name": "Mi Tarjeta",
+  "description": "Tu tarjeta de fidelidad digital de Buen Día Café. Acumula sellos y gana un café gratis.",
+  "start_url": "./tarjeta.html",
+  "scope": "./tarjeta.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#047857",
+  "categories": ["lifestyle", "food"],
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

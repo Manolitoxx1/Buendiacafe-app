@@ -10,7 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <meta name="theme-color" content="#047857">
     <link rel="apple-touch-icon" href="icon.svg">
-    <link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="manifest-tarjeta.json">
 
     <style>
         :root {
@@ -653,6 +653,18 @@
             } else {
                 qrContainerEl.innerHTML = '<div style="font-family:monospace; font-size:1.2rem; font-weight:bold; color:#047857;">' + c.id + '</div>';
             }
+        }
+    </script>
+
+    <!-- Registro del Service Worker dedicado a la tarjeta del cliente -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function () {
+                navigator.serviceWorker.register('./sw-tarjeta.js', { scope: './' })
+                    .catch(function (err) {
+                        console.warn('SW tarjeta no registrado:', err);
+                    });
+            });
         }
     </script>
 
