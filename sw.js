@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fudo-v10';
+const CACHE_NAME = 'fudo-v11';
 const ASSETS = [
     './',
     './index.html',
