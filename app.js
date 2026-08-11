@@ -48,10 +48,12 @@ var STATE = {
     menu: [],
     history: [],
     ingredients: [],
+    customers: [],
     currentTableId: null,
     editingProductId: null,
     editingTableId: null,
     editingIngredientId: null,
+    editingCustomerId: null,
     isSaving: false,
     isConnected: false
 };
@@ -59,8 +61,6 @@ var STATE = {
 var CURRENT_ROLE = localStorage.getItem('fudo_role') || null;
 var BARISTA_CATS = ['Cafetería', 'Bebidas', 'Cafetería fría', 'Té'];
 var activeZone = 'salon';
-
-
 
 function saveAllTables() {
     var tablesObj = {};
@@ -117,12 +117,173 @@ function init() {
             btn.classList.add('active');
             qsa('.view').forEach(function (v) { v.classList.remove('active'); });
             var viewName = btn.getAttribute('data-view');
-            $('view-' + viewName).classList.add('active');
+            var targetView = $('view-' + viewName);
+            if (targetView) targetView.classList.add('active');
             if (viewName === 'balance') {
                 renderBalance();
+            } else if (viewName === 'loyalty') {
+                renderLoyalty();
             }
         });
     });
+
+    // Loyalty Event Handlers
+    var loyaltySearch = $('loyalty-search');
+    if (loyaltySearch) {
+        loyaltySearch.addEventListener('input', renderLoyalty);
+    }
+
+    var btnAddCustomer = $('btn-add-customer');
+    if (btnAddCustomer) {
+        btnAddCustomer.addEventListener('click', function () {
+            STATE.editingCustomerId = null;
+            $('modal-customer-title').textContent = 'Nuevo Socio de Fidelidad';
+            $('input-customer-name').value = '';
+            $('input-customer-phone').value = '';
+            $('input-customer-email').value = '';
+            $('input-customer-stamps').value = '0';
+            $('modal-customer').classList.remove('hidden');
+        });
+    }
+
+    var btnModalCustCancel = $('btn-modal-customer-cancel');
+    if (btnModalCustCancel) {
+        btnModalCustCancel.addEventListener('click', function () {
+            $('modal-customer').classList.add('hidden');
+            STATE.editingCustomerId = null;
+        });
+    }
+
+    var btnModalCustSave = $('btn-modal-customer-save');
+    if (btnModalCustSave) {
+        btnModalCustSave.addEventListener('click', function () {
+            var name = $('input-customer-name').value.trim();
+            var phone = $('input-customer-phone').value.trim();
+            var email = $('input-customer-email').value.trim();
+            var stamps = parseInt($('input-customer-stamps').value) || 0;
+
+            if (!name || !phone) {
+                alert('Por favor, ingresa al menos Nombre y Teléfono.');
+                return;
+            }
+
+            var custId = STATE.editingCustomerId || ('c_' + Math.random().toString(36).substr(2, 7));
+            var custData = {
+                id: custId,
+                name: name,
+                phone: phone,
+                email: email,
+                stamps: stamps,
+                updatedAt: new Date().toISOString()
+            };
+
+            if (!STATE.editingCustomerId) {
+                custData.createdAt = new Date().toISOString();
+                custData.rewardsClaimed = 0;
+            }
+
+            db.ref('customers/' + custId).update(custData).then(function () {
+                $('modal-customer').classList.add('hidden');
+                STATE.editingCustomerId = null;
+                alert('Socio guardado con éxito.');
+            }).catch(function (e) {
+                alert('Error al guardar socio: ' + e.message);
+            });
+        });
+    }
+
+    // QR Scan / Search Modal
+    var btnScanQr = $('btn-scan-qr');
+    if (btnScanQr) {
+        btnScanQr.addEventListener('click', function () {
+            $('input-qr-code').value = '';
+            $('qr-scan-result').style.display = 'none';
+            $('qr-scan-result').innerHTML = '';
+            $('modal-qr-scanner').classList.remove('hidden');
+            setTimeout(function () { $('input-qr-code').focus(); }, 200);
+        });
+    }
+
+    var btnModalQrCancel = $('btn-modal-qr-cancel');
+    if (btnModalQrCancel) {
+        btnModalQrCancel.addEventListener('click', function () {
+            $('modal-qr-scanner').classList.add('hidden');
+        });
+    }
+
+    var btnModalQrSearch = $('btn-modal-qr-search');
+    var inputQrCode = $('input-qr-code');
+    function processQrSearch() {
+        var query = (inputQrCode.value || '').trim();
+        if (!query) return;
+
+        var c = (STATE.customers || []).find(function (x) {
+            return (x.id || '').toLowerCase() === query.toLowerCase() ||
+                   (x.phone || '').toLowerCase() === query.toLowerCase() ||
+                   (x.name || '').toLowerCase().indexOf(query.toLowerCase()) >= 0;
+        });
+
+        var resBox = $('qr-scan-result');
+        resBox.style.display = 'block';
+
+        if (c) {
+            var stamps = c.stamps || 0;
+            var isReady = stamps >= 10;
+            resBox.innerHTML = 
+                '<div style="background:var(--bg-body); border:1px solid var(--border); padding:1rem; border-radius:var(--radius-md); text-align:center;">' +
+                    '<h4 style="font-size:1.1rem; color:var(--primary);">' + escapeHtml(c.name) + '</h4>' +
+                    '<p style="font-size:0.875rem; color:var(--text-muted); margin-bottom:0.5rem;">Teléfono: ' + escapeHtml(c.phone) + ' | ID: ' + c.id + '</p>' +
+                    '<div style="font-size:1.2rem; font-weight:bold; margin-bottom:0.75rem;">' + stamps + ' / 10 Sellos</div>' +
+                    '<div style="display:flex; gap:0.5rem; justify-content:center;">' +
+                        '<button class="btn btn-success" id="btn-qr-add-stamp">+1 Sello</button>' +
+                        (isReady ? '<button class="btn btn-primary" id="btn-qr-redeem" style="background:#d97706; border-color:#d97706;">🎁 Canjear Café Gratis</button>' : '') +
+                        '<button class="btn btn-outline" id="btn-qr-view-card">📱 Ver Tarjeta</button>' +
+                    '</div>' +
+                '</div>';
+
+            var addBtn = $('btn-qr-add-stamp');
+            if (addBtn) {
+                addBtn.addEventListener('click', function () {
+                    addCustomerStamp(c.id, 1);
+                    processQrSearch();
+                });
+            }
+
+            var redeemBtn = $('btn-qr-redeem');
+            if (redeemBtn) {
+                redeemBtn.addEventListener('click', function () {
+                    redeemCustomerReward(c.id);
+                    processQrSearch();
+                });
+            }
+
+            var viewBtn = $('btn-qr-view-card');
+            if (viewBtn) {
+                viewBtn.addEventListener('click', function () {
+                    $('modal-qr-scanner').classList.add('hidden');
+                    showCustomerCard(c.id);
+                });
+            }
+        } else {
+            resBox.innerHTML = '<div style="color:var(--danger); text-align:center; padding:0.5rem;">No se encontró ningún socio con esa identificación.</div>';
+        }
+    }
+
+    if (btnModalQrSearch) {
+        btnModalQrSearch.addEventListener('click', processQrSearch);
+    }
+    if (inputQrCode) {
+        inputQrCode.addEventListener('keyup', function (e) {
+            if (e.key === 'Enter') processQrSearch();
+        });
+    }
+
+    var btnCloseCard = $('btn-close-customer-card');
+    if (btnCloseCard) {
+        btnCloseCard.addEventListener('click', function () {
+            $('view-customer-card').classList.add('hidden');
+        });
+    }  });
 
     // Zone Selection Tabs for Mesas
     qsa('.zone-tab').forEach(function (tab) {
@@ -838,6 +999,22 @@ function init() {
         }
     }, function (error) {
         alert('Error de conexión a Registro de Ingredientes: ' + error.message);
+    });
+
+    db.ref('customers').on('value', function (snapshot) {
+        var rawVal = snapshot.val() || {};
+        STATE.customers = Object.keys(rawVal).map(function (key) {
+            var c = rawVal[key];
+            if (typeof c === 'object' && c !== null) {
+                c.id = key;
+                return c;
+            }
+            return { id: key, name: 'Socio', stamps: 0 };
+        });
+        renderLoyalty();
+        checkCustomerUrlParam();
+    }, function (error) {
+        console.error('Error de conexión a Clientes: ' + error.message);
     });
 }
 
@@ -2261,5 +2438,243 @@ function recalculateAllRecipeCosts() {
     });
     if (menuChanged) {
         saveMenu();
+    }
+}
+
+// ==========================================================================
+// CLUB DE FIDELIDAD Y GESTIÓN DE CLIENTES
+// ==========================================================================
+function renderLoyalty() {
+    var tbody = $('loyalty-customers-body');
+    if (!tbody) return;
+
+    var q = ($('loyalty-search') ? $('loyalty-search').value : '').toLowerCase().trim();
+    var filtered = (STATE.customers || []).filter(function (c) {
+        var name = (c.name || '').toLowerCase();
+        var phone = (c.phone || '').toLowerCase();
+        var id = (c.id || '').toLowerCase();
+        var email = (c.email || '').toLowerCase();
+        return name.indexOf(q) >= 0 || phone.indexOf(q) >= 0 || id.indexOf(q) >= 0 || email.indexOf(q) >= 0;
+    });
+
+    // Actualizar resumen
+    var totalCustomers = (STATE.customers || []).length;
+    var totalStamps = (STATE.customers || []).reduce(function (sum, c) { return sum + (c.stamps || 0); }, 0);
+    var totalRewards = (STATE.customers || []).reduce(function (sum, c) { return sum + (c.rewardsClaimed || 0); }, 0);
+
+    if ($('loyalty-total-customers')) $('loyalty-total-customers').textContent = totalCustomers;
+    if ($('loyalty-total-stamps')) $('loyalty-total-stamps').textContent = totalStamps;
+    if ($('loyalty-total-rewards')) $('loyalty-total-rewards').textContent = totalRewards;
+
+    tbody.innerHTML = '';
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--text-muted);">' +
+            (q ? 'No se encontraron socios con esa búsqueda.' : 'No hay socios registrados aún. Haz clic en "Nuevo Cliente" para comenzar.') +
+            '</td></tr>';
+        return;
+    }
+
+    filtered.forEach(function (c) {
+        var stamps = c.stamps || 0;
+        var tr = document.createElement('tr');
+        tr.style.borderBottom = '1px solid var(--border)';
+
+        var cups = '';
+        for (var i = 0; i < Math.min(stamps, 10); i++) {
+            cups += '☕';
+        }
+        for (var j = stamps; j < 10; j++) {
+            cups += '⚪';
+        }
+
+        var isRewardReady = stamps >= 10;
+        var badgeClass = isRewardReady ? 'stamp-badge-gold' : 'stamp-badge-green';
+        var badgeText = isRewardReady ? '🎉 ¡Café Gratis Listo!' : stamps + ' / 10 sellos';
+
+        tr.innerHTML = 
+            '<td style="padding:0.875rem 1rem;">' +
+                '<strong style="font-size:0.95rem; color:var(--text-main);">' + escapeHtml(c.name || 'Sin Nombre') + '</strong>' +
+                '<div style="font-size:0.75rem; color:var(--text-muted); font-family:monospace; margin-top:2px;">ID: ' + c.id + '</div>' +
+            '</td>' +
+            '<td style="padding:0.875rem 1rem;">' +
+                '<div style="font-weight:500;">' + escapeHtml(c.phone || '-') + '</div>' +
+                (c.email ? '<div style="font-size:0.75rem; color:var(--text-muted);">' + escapeHtml(c.email) + '</div>' : '') +
+            '</td>' +
+            '<td style="padding:0.875rem 1rem;">' +
+                '<div style="letter-spacing:2px; font-size:1.1rem; margin-bottom:4px;">' + cups + '</div>' +
+                '<span class="stamp-badge-tag ' + badgeClass + '">' + badgeText + '</span>' +
+            '</td>' +
+            '<td style="padding:0.875rem 1rem; text-align:center;">' +
+                '<strong style="font-size:1rem; color:#d97706;">' + (c.rewardsClaimed || 0) + '</strong>' +
+            '</td>' +
+            '<td style="padding:0.875rem 1rem; text-align:center;">' +
+                '<div style="display:flex; gap:0.4rem; justify-content:center; flex-wrap:wrap;">' +
+                    '<button class="btn btn-success btn-add-stamp" title="Sumar 1 Sello" style="padding:0.35rem 0.6rem; font-size:0.8rem;">+1 Sello</button>' +
+                    (stamps > 0 ? '<button class="btn btn-outline btn-sub-stamp" title="Restar 1 Sello" style="padding:0.35rem 0.5rem; font-size:0.8rem;">-1</button>' : '') +
+                    (isRewardReady ? '<button class="btn btn-primary btn-redeem-reward" style="padding:0.35rem 0.6rem; font-size:0.8rem; background:#d97706; border-color:#d97706;">Canjear Premio</button>' : '') +
+                    '<button class="btn btn-outline btn-view-card" title="Ver Tarjeta Digital" style="padding:0.35rem 0.6rem; font-size:0.8rem;">📱 Tarjeta</button>' +
+                    '<button class="btn btn-outline btn-edit-customer" title="Editar Socio" style="padding:0.35rem 0.5rem; font-size:0.8rem;">✏️</button>' +
+                    '<button class="btn btn-danger btn-del-customer" title="Eliminar Socio" style="padding:0.35rem 0.5rem; font-size:0.8rem;">🗑️</button>' +
+                '</div>' +
+            '</td>';
+
+        // Eventos
+        tr.querySelector('.btn-add-stamp').addEventListener('click', function () {
+            addCustomerStamp(c.id, 1);
+        });
+
+        var subBtn = tr.querySelector('.btn-sub-stamp');
+        if (subBtn) {
+            subBtn.addEventListener('click', function () {
+                addCustomerStamp(c.id, -1);
+            });
+        }
+
+        var redeemBtn = tr.querySelector('.btn-redeem-reward');
+        if (redeemBtn) {
+            redeemBtn.addEventListener('click', function () {
+                redeemCustomerReward(c.id);
+            });
+        }
+
+        tr.querySelector('.btn-view-card').addEventListener('click', function () {
+            showCustomerCard(c.id);
+        });
+
+        tr.querySelector('.btn-edit-customer').addEventListener('click', function () {
+            editCustomer(c.id);
+        });
+
+        tr.querySelector('.btn-del-customer').addEventListener('click', function () {
+            showConfirm('¿Eliminar al socio ' + c.name + ' (' + c.phone + ')?', function () {
+                db.ref('customers/' + c.id).remove().then(function () {
+                    alert('Socio eliminado.');
+                }).catch(function (e) {
+                    alert('Error: ' + e.message);
+                });
+            });
+        });
+
+        tbody.appendChild(tr);
+    });
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function addCustomerStamp(customerId, count) {
+    var c = (STATE.customers || []).find(function (x) { return x.id === customerId; });
+    if (!c) return;
+    var newStamps = Math.max(0, (c.stamps || 0) + count);
+    db.ref('customers/' + customerId + '/stamps').set(newStamps).then(function () {
+        if (count > 0 && newStamps === 10) {
+            alert('🎉 ¡Felicidades! ' + c.name + ' ha completado 10 sellos y ganado 1 Café Gratis.');
+        }
+    }).catch(function (e) {
+        alert('Error al guardar sellos: ' + e.message);
+    });
+}
+
+function redeemCustomerReward(customerId) {
+    var c = (STATE.customers || []).find(function (x) { return x.id === customerId; });
+    if (!c) return;
+    if ((c.stamps || 0) < 10) {
+        alert('El socio no cuenta con 10 sellos acumulados aún.');
+        return;
+    }
+    showConfirm('¿Confirmar canje de Café Gratis para ' + c.name + '?', function () {
+        var newStamps = Math.max(0, (c.stamps || 0) - 10);
+        var newRewards = (c.rewardsClaimed || 0) + 1;
+        db.ref('customers/' + customerId).update({
+            stamps: newStamps,
+            rewardsClaimed: newRewards,
+            lastRewardDate: new Date().toISOString()
+        }).then(function () {
+            alert('✅ ¡Premio canjeado con éxito! Se descontaron 10 sellos.');
+        }).catch(function (e) {
+            alert('Error al canjear premio: ' + e.message);
+        });
+    });
+}
+
+function editCustomer(customerId) {
+    var c = (STATE.customers || []).find(function (x) { return x.id === customerId; });
+    if (!c) return;
+    STATE.editingCustomerId = customerId;
+    $('modal-customer-title').textContent = 'Editar Socio';
+    $('input-customer-name').value = c.name || '';
+    $('input-customer-phone').value = c.phone || '';
+    $('input-customer-email').value = c.email || '';
+    $('input-customer-stamps').value = c.stamps || 0;
+    $('modal-customer').classList.remove('hidden');
+}
+
+function showCustomerCard(customerId) {
+    var c = (STATE.customers || []).find(function (x) { return x.id === customerId || x.phone === customerId; });
+    if (!c) {
+        alert('No se encontró información del socio.');
+        return;
+    }
+
+    var stamps = c.stamps || 0;
+    $('card-customer-name').textContent = '¡Hola, ' + (c.name || 'Socio') + '!';
+    $('card-customer-status').textContent = 'Llevas ' + stamps + ' de 10 sellos acumulados';
+    $('card-customer-id').textContent = 'ID: ' + c.id;
+
+    // Construir Grilla de Sellos
+    var stampsGrid = $('card-stamps-grid');
+    stampsGrid.innerHTML = '';
+    for (var i = 1; i <= 10; i++) {
+        var slot = document.createElement('div');
+        var isActive = i <= stamps;
+        var isFreeSlot = (i === 10);
+
+        slot.className = 'stamp-slot' + (isActive ? ' active' : '') + (isFreeSlot ? ' free-slot' : '');
+        var icon = isFreeSlot ? (isActive ? '🎁' : '☕') : '☕';
+
+        slot.innerHTML = '<span class="stamp-icon">' + (isActive ? icon : '⚪') + '</span>' +
+                         '<span class="stamp-num">' + (isFreeSlot ? 'GRATIS' : i) + '</span>';
+        stampsGrid.appendChild(slot);
+    }
+
+    // Banner de Premio
+    var rewardBanner = $('card-reward-banner');
+    if (rewardBanner) {
+        rewardBanner.style.display = stamps >= 10 ? 'flex' : 'none';
+    }
+
+    // Código QR
+    var qrContainer = $('card-qr-code');
+    qrContainer.innerHTML = '';
+    if (typeof QRCode !== 'undefined') {
+        new QRCode(qrContainer, {
+            text: c.id,
+            width: 140,
+            height: 140,
+            colorDark: '#047857',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.H
+        });
+    } else {
+        qrContainer.innerHTML = '<div style="font-family:monospace; font-size:1.2rem; font-weight:bold; color:#047857; text-align:center;">' + c.id + '</div>';
+    }
+
+    // Mostrar overlay
+    $('view-customer-card').classList.remove('hidden');
+}
+
+function checkCustomerUrlParam() {
+    var urlParams = new URLSearchParams(window.location.search);
+    var custId = urlParams.get('cliente') || urlParams.get('card') || urlParams.get('id');
+    if (!custId && window.location.hash) {
+        var hash = window.location.hash.replace('#', '');
+        if (hash.indexOf('cliente=') >= 0) custId = hash.split('cliente=')[1];
+        else if (hash.indexOf('card=') >= 0) custId = hash.split('card=')[1];
+    }
+    if (custId && STATE.customers && STATE.customers.length > 0) {
+        showCustomerCard(custId);
     }
 }
