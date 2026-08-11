@@ -207,6 +207,7 @@ function init() {
     var btnModalQrCancel = $('btn-modal-qr-cancel');
     if (btnModalQrCancel) {
         btnModalQrCancel.addEventListener('click', function () {
+            stopQrCamera();
             $('modal-qr-scanner').classList.add('hidden');
         });
     }
@@ -278,7 +279,66 @@ function init() {
         });
     }
 
+    // ---- Cámara QR (html5-qrcode) ----
+    var _qrScanner = null;
+    var _qrRunning = false;
+
+    function stopQrCamera() {
+        if (_qrScanner && _qrRunning) {
+            _qrScanner.stop().catch(function() {});
+            _qrRunning = false;
+        }
+        var startBtn = $('btn-start-camera');
+        var stopBtn  = $('btn-stop-camera');
+        var status   = $('qr-camera-status');
+        if (startBtn) startBtn.style.display = '';
+        if (stopBtn)  stopBtn.style.display = 'none';
+        if (status)   status.style.display = 'none';
+    }
+
+    var btnStartCamera = $('btn-start-camera');
+    if (btnStartCamera) {
+        btnStartCamera.addEventListener('click', function () {
+            if (typeof Html5Qrcode === 'undefined') {
+                alert('La librería de escaneo no está cargada. Verifica tu conexión a internet.');
+                return;
+            }
+            btnStartCamera.style.display = 'none';
+            var stopBtn = $('btn-stop-camera');
+            var status  = $('qr-camera-status');
+            if (stopBtn) stopBtn.style.display = '';
+            if (status)  status.style.display = 'block';
+
+            if (!_qrScanner) {
+                _qrScanner = new Html5Qrcode('qr-camera-reader');
+            }
+
+            _qrScanner.start(
+                { facingMode: 'environment' },
+                { fps: 10, qrbox: { width: 230, height: 230 } },
+                function onScanSuccess(decodedText) {
+                    var inp = $('input-qr-code');
+                    if (inp) inp.value = decodedText.trim();
+                    stopQrCamera();
+                    processQrSearch();
+                },
+                function onScanError() { /* silencioso */ }
+            ).then(function () {
+                _qrRunning = true;
+            }).catch(function (err) {
+                stopQrCamera();
+                alert('No se pudo acceder a la cámara.\nAsegúrate de dar permiso de cámara al navegador.\n\nDetalle: ' + err);
+            });
+        });
+    }
+
+    var btnStopCamera = $('btn-stop-camera');
+    if (btnStopCamera) {
+        btnStopCamera.addEventListener('click', stopQrCamera);
+    }
+
     var btnCloseCard = $('btn-close-customer-card');
+
     if (btnCloseCard) {
         btnCloseCard.addEventListener('click', function () {
             $('view-customer-card').classList.add('hidden');

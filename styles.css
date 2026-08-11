@@ -191,8 +191,9 @@ input { font-family: inherit; }
     .nav-btn { flex-direction: column; width: auto; padding: .5rem .75rem; gap: .15rem; font-size: .7rem; }
     .nav-btn.active { background: transparent; color: var(--primary); }
     .sidebar-footer { display: none; }
-    .main-content { flex: 1; overflow: hidden; }
-    .view { padding: 1rem; }
+    /* Correción scroll móvil: overflow auto en lugar de hidden */
+    .main-content { flex: 1; overflow: auto; min-height: 0; }
+    .view { padding: 1rem; overflow-y: auto; }
     .view-title { font-size: 1.25rem; }
     .order-panel { width: 100%; }
     

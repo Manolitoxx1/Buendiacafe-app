@@ -40,13 +40,16 @@
             min-height: 100vh;
             display: flex;
             justify-content: center;
-            align-items: center;
-            padding: 1rem;
+            /* Removido align-items: center para permitir scroll en móvil */
+            align-items: flex-start;
+            padding: 1.25rem 1rem;
+            overflow-y: auto;
         }
 
         .app-card-wrapper {
             width: 100%;
             max-width: 420px;
+            margin: auto 0;
         }
 
         /* CARD STYLES */
