@@ -2695,9 +2695,9 @@ function showCustomerCard(customerId) {
         slot.className = 'stamp-slot' + (isActive ? ' active' : '') + (isFreeSlot ? ' free-slot' : '');
         var iconActive = '<img src="sello.png" style="width: 100%; height: 100%; object-fit: contain;">';
         var iconInactive = '<img src="grano_sol.png" style="width: 100%; height: 100%; object-fit: contain; opacity: 0.2; filter: grayscale(100%);">';
-        var sizeStyle = isActive ? 'width: 36px; height: 36px; transform: scale(1.6);' : 'width: 36px; height: 36px;';
+        var sizeStyle = isActive ? 'width: 55px; height: 55px; position: absolute; z-index: 10;' : 'width: 32px; height: 32px;';
 
-        slot.innerHTML = '<span class="stamp-icon" style="' + sizeStyle + ' display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 50%; transition: transform 0.3s ease;">' + (isActive ? iconActive : iconInactive) + '</span>' +
+        slot.innerHTML = '<span class="stamp-icon" style="' + sizeStyle + ' display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 50%;">' + (isActive ? iconActive : iconInactive) + '</span>' +
                          '<span class="stamp-num">' + (isFreeSlot ? 'GRATIS' : i) + '</span>';
         stampsGrid.appendChild(slot);
     }
