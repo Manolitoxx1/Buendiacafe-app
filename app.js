@@ -2693,9 +2693,10 @@ function showCustomerCard(customerId) {
         var isFreeSlot = (i === 10);
 
         slot.className = 'stamp-slot' + (isActive ? ' active' : '') + (isFreeSlot ? ' free-slot' : '');
-        var icon = isFreeSlot ? (isActive ? '🎁' : '☕') : '☕';
+        var iconActive = '<img src="sello.png" style="width: 100%; height: 100%; object-fit: contain;">';
+        var iconInactive = '<img src="grano_sol.png" style="width: 100%; height: 100%; object-fit: contain; opacity: 0.2; filter: grayscale(100%);">';
 
-        slot.innerHTML = '<span class="stamp-icon">' + (isActive ? icon : '⚪') + '</span>' +
+        slot.innerHTML = '<span class="stamp-icon" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 50%;">' + (isActive ? iconActive : iconInactive) + '</span>' +
                          '<span class="stamp-num">' + (isFreeSlot ? 'GRATIS' : i) + '</span>';
         stampsGrid.appendChild(slot);
     }
