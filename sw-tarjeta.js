@@ -1,7 +1,7 @@
 // Service Worker dedicado para la Tarjeta de Fidelidad del Cliente
 // Completamente independiente del SW del sistema de caja (sw.js)
 
-const CACHE_NAME = 'tarjeta-buendia-v1';
+const CACHE_NAME = 'tarjeta-buendia-v2';
 const ASSETS = [
     './tarjeta.html',
     './manifest-tarjeta.json',
