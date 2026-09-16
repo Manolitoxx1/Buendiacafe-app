@@ -2793,7 +2793,10 @@ function initAppConfig() {
         if (selectStatus) selectStatus.value = STATE_APPCONFIG.storeStatus;
         
         var inputCafeSemana = $('setting-cafe-semana');
-        if (inputCafeSemana) inputCafeSemana.value = STATE_APPCONFIG.cafeSemana;
+        if (inputCafeSemana) inputCafeSemana.value = STATE_APPCONFIG.cafeSemana || '';
+        
+        var inputGranoSemana = $('setting-grano-semana');
+        if (inputGranoSemana) inputGranoSemana.value = STATE_APPCONFIG.granoSemana || '';
         
         renderTiersConfig();
     });
@@ -2813,9 +2816,16 @@ function initAppConfig() {
     var btnSaveCafeSemana = $('btn-save-cafe-semana');
     if (btnSaveCafeSemana) {
         btnSaveCafeSemana.addEventListener('click', function () {
-            var val = $('setting-cafe-semana').value;
-            db.ref('settings/appConfig/cafeSemana').set(val).then(function() {
-                alert('Café de la semana actualizado con éxito.');
+            var valCafe = $('setting-cafe-semana').value;
+            var valGrano = $('setting-grano-semana') ? $('setting-grano-semana').value : '';
+            
+            var updates = {
+                'settings/appConfig/cafeSemana': valCafe,
+                'settings/appConfig/granoSemana': valGrano
+            };
+            
+            db.ref().update(updates).then(function() {
+                alert('Destacados actualizados con éxito.');
             }).catch(function(e) {
                 alert('Error al guardar: ' + e.message);
             });
