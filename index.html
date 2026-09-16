@@ -1125,6 +1125,13 @@
                 </svg>
                 <span>Configuración</span>
             </button>
+            <button class="nav-btn" data-view="appconfig" id="nav-appconfig">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+                    <line x1="12" y1="18" x2="12.01" y2="18"/>
+                </svg>
+                <span>Config App Cliente</span>
+            </button>
         </nav>
         <div class="sidebar-footer">
             <span id="connection-status"
@@ -1475,6 +1482,47 @@
             </div>
         </section>
 
+        <!-- Vista de Configuración App Cliente -->
+        <section id="view-appconfig" class="view">
+            <header class="view-header">
+                <div>
+                    <h1 class="view-title">Configuración App Cliente</h1>
+                    <p class="view-subtitle">Gestiona qué ve el cliente en su aplicación</p>
+                </div>
+            </header>
+
+            <div class="summary-card" style="margin-bottom: 1.5rem; max-width: 600px;">
+                <h3 style="margin-bottom: 1rem;">Control del Local</h3>
+                <div class="form-group">
+                    <label class="form-label" for="setting-store-status">Estado del Local (App Cliente)</label>
+                    <select id="setting-store-status" class="input-field">
+                        <option value="auto">Automático (por horario)</option>
+                        <option value="open">Forzar Abierto</option>
+                        <option value="closed">Forzar Cerrado</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" id="btn-save-store-status" style="margin-top:0.5rem;">Guardar Estado</button>
+            </div>
+
+            <div class="summary-card" style="margin-bottom: 1.5rem; max-width: 600px;">
+                <h3 style="margin-bottom: 1rem;">Destacado del Local</h3>
+                <div class="form-group">
+                    <label class="form-label" for="setting-cafe-semana">Café de la Semana (Ej: Mocha Blanco con descuento)</label>
+                    <input type="text" id="setting-cafe-semana" class="input-field" placeholder="Mocaccino 15% OFF">
+                </div>
+                <button class="btn btn-primary" id="btn-save-cafe-semana" style="margin-top:0.5rem;">Guardar Destacado</button>
+            </div>
+
+            <div class="summary-card" style="margin-bottom: 1.5rem; max-width: 600px;">
+                <h3 style="margin-bottom: 1rem;">Configuración de Sendas (Premios)</h3>
+                <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">Define los premios intermedios para cada Senda (Ej: 3, 6, 10). Formato: <code>número_sello: Premio</code>.</p>
+                
+                <div id="tiers-config-container">
+                    <!-- Dinámicamente llenado por app.js -->
+                </div>
+                <button class="btn btn-primary" id="btn-save-tiers" style="margin-top:1rem;">Guardar Sendas</button>
+            </div>
+        </section>
         <!-- Vista de Fidelización (POS / Administración) -->
         <section id="view-loyalty" class="view">
             <header class="view-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">

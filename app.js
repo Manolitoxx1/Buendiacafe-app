@@ -2628,10 +2628,31 @@ function escapeHtml(str) {
 function addCustomerStamp(customerId, count) {
     var c = (STATE.customers || []).find(function (x) { return x.id === customerId; });
     if (!c) return;
-    var newStamps = Math.max(0, (c.stamps || 0) + count);
-    db.ref('customers/' + customerId + '/stamps').set(newStamps).then(function () {
-        if (count > 0 && newStamps === 10) {
-            alert('🎉 ¡Felicidades! ' + c.name + ' ha completado 10 sellos y ganado 1 Café Gratis.');
+    
+    var oldStamps = c.stamps || 0;
+    var newStamps = Math.max(0, oldStamps + count);
+    
+    var updates = {};
+    updates['customers/' + customerId + '/stamps'] = newStamps;
+    
+    var referrer = null;
+    var referrerRewarded = false;
+    
+    if (oldStamps === 0 && newStamps >= 1 && c.referredBy) {
+        referrer = (STATE.customers || []).find(function (x) { return x.referralCode === c.referredBy; });
+        if (referrer) {
+            updates['customers/' + referrer.id + '/stamps'] = (referrer.stamps || 0) + 1;
+            updates['customers/' + customerId + '/referredBy'] = null; // Clear so it only happens once
+            referrerRewarded = true;
+        }
+    }
+    
+    db.ref().update(updates).then(function () {
+        if (referrerRewarded) {
+            alert('¡Bono de referido aplicado! Se regaló 1 sello a su amigo ' + (referrer.name || ''));
+        }
+        if (count > 0 && newStamps >= 10) {
+            alert('🎉 ¡Felicidades! ' + c.name + ' ha alcanzado o superado 10 sellos.');
         }
     }).catch(function (e) {
         alert('Error al guardar sellos: ' + e.message);
@@ -2757,3 +2778,140 @@ function checkCustomerUrlParam() {
         showCustomerCard(custId);
     }
 }
+
+// --- Configuración App Cliente ---
+var STATE_APPCONFIG = { storeStatus: 'auto', cafeSemana: '', tiers: {} };
+
+function initAppConfig() {
+    db.ref('settings/appConfig').on('value', function (snap) {
+        var data = snap.val() || {};
+        STATE_APPCONFIG.storeStatus = data.storeStatus || 'auto';
+        STATE_APPCONFIG.cafeSemana = data.cafeSemana || '';
+        STATE_APPCONFIG.tiers = data.tiers || {};
+        
+        var selectStatus = $('setting-store-status');
+        if (selectStatus) selectStatus.value = STATE_APPCONFIG.storeStatus;
+        
+        var inputCafeSemana = $('setting-cafe-semana');
+        if (inputCafeSemana) inputCafeSemana.value = STATE_APPCONFIG.cafeSemana;
+        
+        renderTiersConfig();
+    });
+
+    var btnSaveStatus = $('btn-save-store-status');
+    if (btnSaveStatus) {
+        btnSaveStatus.addEventListener('click', function () {
+            var val = $('setting-store-status').value;
+            db.ref('settings/appConfig/storeStatus').set(val).then(function() {
+                alert('Estado del local actualizado con éxito.');
+            }).catch(function(e) {
+                alert('Error al guardar estado: ' + e.message);
+            });
+        });
+    }
+
+    var btnSaveCafeSemana = $('btn-save-cafe-semana');
+    if (btnSaveCafeSemana) {
+        btnSaveCafeSemana.addEventListener('click', function () {
+            var val = $('setting-cafe-semana').value;
+            db.ref('settings/appConfig/cafeSemana').set(val).then(function() {
+                alert('Café de la semana actualizado con éxito.');
+            }).catch(function(e) {
+                alert('Error al guardar: ' + e.message);
+            });
+        });
+    }
+
+    var btnSaveTiers = $('btn-save-tiers');
+    if (btnSaveTiers) {
+        btnSaveTiers.addEventListener('click', function () {
+            var newTiers = {
+                1: {}, 2: {}, 3: {}
+            };
+            for (var s = 1; s <= 3; s++) {
+                var items = document.querySelectorAll('.tier-milestone-row[data-tier="' + s + '"]');
+                items.forEach(function(row) {
+                    var stampNum = parseInt(row.querySelector('.milestone-stamp').value, 10);
+                    var prize = row.querySelector('.milestone-prize').value.trim();
+                    if (!isNaN(stampNum) && stampNum > 0 && stampNum <= 10 && prize) {
+                        newTiers[s][stampNum] = prize;
+                    }
+                });
+            }
+            db.ref('settings/appConfig/tiers').set(newTiers).then(function() {
+                alert('Configuración de Sendas actualizada con éxito.');
+            }).catch(function(e) {
+                alert('Error al guardar sendas: ' + e.message);
+            });
+        });
+    }
+}
+
+function renderTiersConfig() {
+    var container = $('tiers-config-container');
+    if (!container) return;
+    
+    var html = '';
+    var sendaNames = {1: 'Bronce (Senda 1)', 2: 'Plata (Senda 2)', 3: 'Oro (Senda 3)'};
+    
+    for (var s = 1; s <= 3; s++) {
+        html += '<div style="margin-bottom: 1rem; border:1px solid var(--border); padding: 1rem; border-radius: var(--radius-md);">';
+        html += '<h4 style="margin-bottom: 0.5rem; color: var(--primary);">' + sendaNames[s] + '</h4>';
+        html += '<div id="tier-list-' + s + '"></div>';
+        html += '<button class="btn btn-outline btn-add-milestone" data-tier="' + s + '" style="margin-top:0.5rem; font-size:0.8rem;">+ Agregar Premio Intermedio</button>';
+        html += '</div>';
+    }
+    
+    container.innerHTML = html;
+    
+    // Fill existing data
+    for (var s = 1; s <= 3; s++) {
+        var tierData = STATE_APPCONFIG.tiers[s] || {};
+        var tierList = $('tier-list-' + s);
+        
+        Object.keys(tierData).forEach(function(stampNum) {
+            addMilestoneRow(tierList, s, stampNum, tierData[stampNum]);
+        });
+        
+        // Always add a default empty row if it's completely empty
+        if (Object.keys(tierData).length === 0) {
+            addMilestoneRow(tierList, s, '', '');
+        }
+    }
+    
+    document.querySelectorAll('.btn-add-milestone').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            var tier = e.target.getAttribute('data-tier');
+            var tierList = $('tier-list-' + tier);
+            addMilestoneRow(tierList, tier, '', '');
+        });
+    });
+}
+
+function addMilestoneRow(container, tier, stampNum, prize) {
+    var div = document.createElement('div');
+    div.className = 'tier-milestone-row form-row';
+    div.setAttribute('data-tier', tier);
+    div.style.marginBottom = '0.5rem';
+    div.style.alignItems = 'center';
+    
+    div.innerHTML = 
+        '<div style="width:100px;">' +
+            '<input type="number" class="input-field milestone-stamp" placeholder="Sello Ej: 5" min="1" max="10" value="' + (stampNum || '') + '">' +
+        '</div>' +
+        '<div style="flex:1;">' +
+            '<input type="text" class="input-field milestone-prize" placeholder="Descripción del Premio" value="' + (prize || '') + '">' +
+        '</div>' +
+        '<div>' +
+            '<button class="btn btn-danger btn-remove-milestone" style="padding:0.5rem;" title="Quitar">X</button>' +
+        '</div>';
+        
+    div.querySelector('.btn-remove-milestone').addEventListener('click', function() {
+        div.remove();
+    });
+    
+    container.appendChild(div);
+}
+
+// Call initAppConfig
+initAppConfig();
