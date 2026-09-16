@@ -2645,15 +2645,32 @@ function redeemCustomerReward(customerId) {
         alert('El socio no cuenta con 10 sellos acumulados aún.');
         return;
     }
-    showConfirm('¿Confirmar canje de Café Gratis para ' + c.name + '?', function () {
+    showConfirm('¿Confirmar canje de premio para ' + c.name + '?', function () {
         var newStamps = Math.max(0, (c.stamps || 0) - 10);
         var newRewards = (c.rewardsClaimed || 0) + 1;
+        var currentTier = c.tier || 1;
+        var currentStars = c.starsEarned || 0;
+        
+        var newTier = currentTier;
+        var newStars = currentStars;
+        
+        if (currentTier < 3) {
+            newTier = currentTier + 1;
+            newStars = currentStars + 1;
+        }
+
         db.ref('customers/' + customerId).update({
             stamps: newStamps,
             rewardsClaimed: newRewards,
+            tier: newTier,
+            starsEarned: newStars,
             lastRewardDate: new Date().toISOString()
         }).then(function () {
-            alert('✅ ¡Premio canjeado con éxito! Se descontaron 10 sellos.');
+            if (newTier > currentTier) {
+                alert('✅ ¡Premio canjeado con éxito! Se descontaron 10 sellos.\n⭐ El cliente ha avanzado a la Senda ' + (newTier === 2 ? 'Plata' : 'Oro') + ' y ganó una estrella.');
+            } else {
+                alert('✅ ¡Premio canjeado con éxito! Se descontaron 10 sellos.');
+            }
         }).catch(function (e) {
             alert('Error al canjear premio: ' + e.message);
         });
