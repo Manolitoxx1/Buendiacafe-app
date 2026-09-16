@@ -101,7 +101,7 @@ input { font-family: inherit; }
 .order-panel-status { font-size: .75rem; font-weight: 600; padding: .25rem .5rem; border-radius: 1rem; margin-top: .25rem; display: inline-block; }
 .status-badge-free { background: #d1fae5; color: var(--status-free); }
 .status-badge-occupied { background: #fef3c7; color: var(--status-occupied); }
-.order-add-section { padding: 1rem; border-bottom: 1px solid var(--border); background: var(--bg-body); }
+.order-add-section { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); background: var(--bg-body); }
 .search-wrapper { position: relative; margin-bottom: .75rem; }
 .search-icon { position: absolute; left: .75rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
 .search-input { padding-left: 2.5rem; }
@@ -109,7 +109,7 @@ input { font-family: inherit; }
 .category-pill { white-space: nowrap; padding: .25rem .5rem; background: transparent; border: none; border-bottom: 4px solid transparent; font-size: .875rem; font-weight: 600; cursor: pointer; transition: var(--transition); color: var(--text-muted); }
 .category-pill:hover { color: var(--text-main); }
 .category-pill.active { color: var(--text-main); border-bottom: 4px solid var(--primary); }
-.order-menu-items { max-height: 180px; overflow-y: auto; display: flex; flex-direction: column; gap: .5rem; }
+.order-menu-items { max-height: 120px; overflow-y: auto; display: flex; flex-direction: column; gap: .5rem; }
 .menu-item-row { display: flex; justify-content: space-between; align-items: center; padding: .75rem; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); cursor: pointer; transition: var(--transition); }
 .menu-item-row:hover { border-color: var(--primary-light); background: var(--primary-light); }
 .item-row-name { font-weight: 500; font-size: .875rem; }
