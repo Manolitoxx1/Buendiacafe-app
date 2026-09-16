@@ -2795,8 +2795,11 @@ function initAppConfig() {
         var inputCafeSemana = $('setting-cafe-semana');
         if (inputCafeSemana) inputCafeSemana.value = STATE_APPCONFIG.cafeSemana || '';
         
-        var inputGranoSemana = $('setting-grano-semana');
-        if (inputGranoSemana) inputGranoSemana.value = STATE_APPCONFIG.granoSemana || '';
+        var inputGranoNombre = $('setting-grano-nombre');
+        if (inputGranoNombre) inputGranoNombre.value = (STATE_APPCONFIG.granoSemana && STATE_APPCONFIG.granoSemana.nombre) || '';
+
+        var inputGranoDesc = $('setting-grano-desc');
+        if (inputGranoDesc) inputGranoDesc.value = (STATE_APPCONFIG.granoSemana && STATE_APPCONFIG.granoSemana.desc) || '';
         
         renderTiersConfig();
     });
@@ -2817,11 +2820,12 @@ function initAppConfig() {
     if (btnSaveCafeSemana) {
         btnSaveCafeSemana.addEventListener('click', function () {
             var valCafe = $('setting-cafe-semana').value;
-            var valGrano = $('setting-grano-semana') ? $('setting-grano-semana').value : '';
+            var valNombre = $('setting-grano-nombre') ? $('setting-grano-nombre').value : '';
+            var valDesc = $('setting-grano-desc') ? $('setting-grano-desc').value : '';
             
             var updates = {
                 'settings/appConfig/cafeSemana': valCafe,
-                'settings/appConfig/granoSemana': valGrano
+                'settings/appConfig/granoSemana': { nombre: valNombre, desc: valDesc }
             };
             
             db.ref().update(updates).then(function() {
