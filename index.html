@@ -3,1598 +3,532 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Buen Dia Cafe - Sistema de Control</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Buen Día Café · Sistema de Control</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
-        rel="stylesheet">
-    <style>
-        :root {
-            --primary: #047857;
-            --primary-hover: #065f46;
-            --primary-light: #d1fae5;
-            --bg-body: #f8fafc;
-            --bg-surface: #ffffff;
-            --bg-surface-hover: #f1f5f9;
-            --text-main: #0f172a;
-            --text-muted: #64748b;
-            --border: #e2e8f0;
-            --status-free: #10b981;
-            --status-occupied: #dc2626;
-            --status-pending: #3b82f6;
-            --danger: #ef4444;
-            --danger-hover: #b91c1c;
-            --success: #10b981;
-            --success-hover: #059669;
-            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-            --radius-md: 0.5rem;
-            --radius-lg: 0.75rem;
-            --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background: var(--bg-body);
-            color: var(--text-main);
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        h1,
-        h2,
-        h3 {
-            font-weight: 600;
-        }
-
-        button {
-            font-family: inherit;
-            cursor: pointer;
-            border: none;
-            background: none;
-            touch-action: manipulation;
-        }
-
-        .table-card,
-        .menu-item-row,
-        .category-pill,
-        .qty-btn {
-            touch-action: manipulation;
-        }
-
-        input {
-            font-family: inherit;
-        }
-
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 4px;
-        }
-
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: .5rem;
-            padding: .5rem 1rem;
-            font-size: .875rem;
-            font-weight: 500;
-            border-radius: var(--radius-md);
-            transition: var(--transition);
-        }
-
-        .btn-primary {
-            background: var(--primary);
-            color: #fff;
-        }
-
-        .btn-primary:hover {
-            background: var(--primary-hover);
-        }
-
-        .btn-danger {
-            background: var(--danger);
-            color: #fff;
-        }
-
-        .btn-danger:hover {
-            background: var(--danger-hover);
-        }
-
-        .btn-success {
-            background: var(--success);
-            color: #fff;
-        }
-
-        .btn-success:hover {
-            background: var(--success-hover);
-        }
-
-        .btn-outline {
-            border: 1px solid var(--border);
-            background: var(--bg-surface);
-            color: var(--text-main);
-        }
-
-        .btn-outline:hover {
-            background: var(--bg-surface-hover);
-        }
-
-        .btn-ghost {
-            color: var(--text-muted);
-        }
-
-        .btn-ghost:hover {
-            background: var(--bg-surface-hover);
-            color: var(--text-main);
-        }
-
-        .btn-icon {
-            padding: .5rem;
-            color: var(--text-muted);
-            border-radius: var(--radius-md);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: var(--transition);
-        }
-
-        .btn-icon:hover {
-            background: var(--bg-surface-hover);
-            color: var(--text-main);
-        }
-
-        .form-group {
-            margin-bottom: 1rem;
-        }
-
-        .form-row {
-            display: flex;
-            gap: 1rem;
-        }
-
-        .form-row .form-group {
-            flex: 1;
-        }
-
-        .form-label {
-            display: block;
-            font-size: .875rem;
-            font-weight: 500;
-            margin-bottom: .25rem;
-        }
-
-        .input-field {
-            width: 100%;
-            padding: .5rem .75rem;
-            border: 1px solid var(--border);
-            border-radius: var(--radius-md);
-            font-size: .875rem;
-            outline: none;
-            transition: var(--transition);
-        }
-
-        .input-field:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 2px var(--primary-light);
-        }
-
-        .sidebar {
-            width: 260px;
-            background: var(--bg-surface);
-            border-right: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
-            z-index: 10;
-            flex-shrink: 0;
-        }
-
-        .sidebar-brand {
-            padding: 1.5rem;
-            display: flex;
-            align-items: center;
-            gap: .75rem;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .brand-icon {
-            font-size: 1.5rem;
-        }
-
-        .brand-text {
-            font-weight: 700;
-            font-size: 1.125rem;
-            color: var(--primary);
-        }
-
-        .sidebar-nav {
-            flex: 1;
-            padding: 1.5rem 1rem;
-            display: flex;
-            flex-direction: column;
-            gap: .5rem;
-        }
-
-        .nav-btn {
-            display: flex;
-            align-items: center;
-            gap: .75rem;
-            width: 100%;
-            padding: .75rem 1rem;
-            border-radius: var(--radius-md);
-            color: var(--text-muted);
-            font-weight: 500;
-            transition: var(--transition);
-        }
-
-        .nav-btn:hover {
-            background: var(--bg-surface-hover);
-            color: var(--text-main);
-        }
-
-        .nav-btn.active {
-            background: var(--primary-light);
-            color: var(--primary);
-        }
-
-        .nav-icon {
-            width: 20px;
-            height: 20px;
-        }
-
-        .sidebar-footer {
-            padding: 1.5rem;
-            border-top: 1px solid var(--border);
-        }
-
-        .daily-total {
-            background: var(--bg-body);
-            padding: 1rem;
-            border-radius: var(--radius-md);
-            text-align: center;
-        }
-
-        .daily-label {
-            display: block;
-            font-size: .75rem;
-            text-transform: uppercase;
-            color: var(--text-muted);
-            letter-spacing: .05em;
-            margin-bottom: .25rem;
-        }
-
-        .daily-amount {
-            display: block;
-            font-size: 1.25rem;
-            font-weight: 700;
-            color: var(--primary);
-        }
-
-        .main-content {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        .view {
-            display: none;
-            flex-direction: column;
-            height: 100%;
-            padding: 2rem;
-            overflow-y: auto;
-        }
-
-        .view.active {
-            display: flex;
-        }
-
-        .view-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-            margin-bottom: 2rem;
-            flex-wrap: wrap;
-            gap: 1rem;
-            flex-shrink: 0;
-        }
-
-        .view-title {
-            font-size: 1.875rem;
-            font-weight: 700;
-        }
-
-        .view-subtitle {
-            color: var(--text-muted);
-            margin-top: .25rem;
-        }
-
-        .tables-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-            gap: 1.5rem;
-        }
-
-        .table-card {
-            background: var(--bg-surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-lg);
-            padding: 1.5rem;
-            cursor: pointer;
-            transition: var(--transition);
-            box-shadow: var(--shadow-sm);
-            position: relative;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .table-card:hover {
-            box-shadow: var(--shadow-md);
-            transform: translateY(-2px);
-        }
-
-        .table-status-indicator {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 4px;
-        }
-
-        .table-card[data-status="free"] .table-status-indicator {
-            background: var(--status-free);
-        }
-
-        .table-card[data-status="occupied"] .table-status-indicator {
-            background: var(--status-occupied);
-        }
-
-        .table-icon {
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .table-card[data-status="free"] .table-icon {
-            color: var(--status-free);
-            background: #d1fae5;
-        }
-
-        .table-card[data-status="occupied"] .table-icon {
-            color: var(--status-occupied);
-            background: #fef3c7;
-        }
-
-        .table-info {
-            text-align: center;
-        }
-
-        .table-name {
-            font-weight: 600;
-            font-size: 1.125rem;
-        }
-
-        .table-amount {
-            font-size: .875rem;
-            color: var(--text-muted);
-            margin-top: .25rem;
-        }
-
-        .table-actions {
-            position: absolute;
-            top: .5rem;
-            right: .5rem;
-            display: none;
-            gap: .25rem;
-        }
-
-        .table-card:hover .table-actions {
-            display: flex;
-        }
-
-        .btn-table-edit,
-        .btn-table-delete {
-            color: var(--text-muted);
-            background: #fff;
-            border-radius: 50%;
-            padding: .25rem;
-            box-shadow: var(--shadow-sm);
-            transition: var(--transition);
-        }
-
-        .btn-table-edit:hover {
-            color: var(--primary);
-        }
-
-        .btn-table-delete:hover {
-            color: var(--danger);
-        }
-
-        .overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(15, 23, 42, .4);
-            backdrop-filter: blur(2px);
-            z-index: 40;
-            opacity: 1;
-            transition: opacity .3s;
-        }
-
-        .overlay.hidden {
-            opacity: 0;
-            pointer-events: none;
-        }
-
-        .order-panel {
-            position: fixed;
-            top: 0;
-            right: 0;
-            bottom: 0;
-            width: 450px;
-            background: var(--bg-surface);
-            box-shadow: -4px 0 15px rgba(0, 0, 0, .1);
-            z-index: 50;
-            display: flex;
-            flex-direction: column;
-            transform: translate3d(0, 0, 0);
-            will-change: transform;
-            backface-visibility: hidden;
-            transition: transform .3s cubic-bezier(.4, 0, .2, 1);
-        }
-
-        .order-panel.hidden {
-            transform: translate3d(100%, 0, 0);
-        }
-
-        .order-panel-header {
-            padding: 1.5rem;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .order-panel-title {
-            font-size: 1.25rem;
-        }
-
-        .order-panel-status {
-            font-size: .75rem;
-            font-weight: 600;
-            padding: .25rem .5rem;
-            border-radius: 1rem;
-            margin-top: .25rem;
-            display: inline-block;
-        }
-
-        .status-badge-free {
-            background: #d1fae5;
-            color: var(--status-free);
-        }
-
-        .status-badge-occupied {
-            background: #fef3c7;
-            color: var(--status-occupied);
-        }
-
-        .order-add-section {
-            padding: 0.75rem 1rem;
-            border-bottom: 1px solid var(--border);
-            background: var(--bg-body);
-        }
-
-        .search-wrapper {
-            position: relative;
-            margin-bottom: .5rem;
-        }
-
-        .search-icon {
-            position: absolute;
-            left: .75rem;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--text-muted);
-        }
-
-        .search-input {
-            padding-left: 2.5rem;
-        }
-
-        .order-categories {
-            display: flex;
-            gap: .5rem;
-            overflow-x: auto;
-            padding-bottom: .25rem;
-            margin-bottom: .5rem;
-        }
-
-        .category-pill {
-            white-space: nowrap;
-            padding: .25rem .5rem;
-            background: transparent;
-            border: none;
-            border-bottom: 4px solid transparent;
-            font-size: .875rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: var(--transition);
-            color: var(--text-muted);
-        }
-
-        .category-pill:hover {
-            color: var(--text-main);
-        }
-
-        .category-pill.active {
-            color: var(--text-main);
-            border-bottom: 4px solid var(--primary);
-        }
-
-        .order-menu-items {
-            max-height: 120px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: .5rem;
-        }
-
-        .menu-item-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: .75rem;
-            background: var(--bg-surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-md);
-            cursor: pointer;
-            transition: var(--transition);
-        }
-
-        .menu-item-row:hover {
-            border-color: var(--primary-light);
-            background: var(--primary-light);
-        }
-
-        .item-row-name {
-            font-weight: 500;
-            font-size: .875rem;
-        }
-
-        .item-row-price {
-            font-weight: 600;
-            color: var(--primary);
-            font-size: .875rem;
-        }
-
-        .order-items-section {
-            flex: 1;
-            overflow-y: auto;
-            padding: 1rem;
-        }
-
-        .order-items-heading {
-            font-size: 1rem;
-            color: var(--text-muted);
-            margin-bottom: 1rem;
-        }
-
-        .order-items-list {
-            display: flex;
-            flex-direction: column;
-            gap: .75rem;
-        }
-
-        .order-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding-bottom: .75rem;
-            border-bottom: 1px dashed var(--border);
-        }
-
-        .order-item-info {
-            flex: 1;
-        }
-
-        .order-item-name {
-            font-weight: 500;
-            font-size: .875rem;
-            margin-bottom: .25rem;
-        }
-
-        .order-item-price {
-            font-size: .75rem;
-            color: var(--text-muted);
-        }
-
-        .order-item-controls {
-            display: flex;
-            align-items: center;
-            gap: .5rem;
-        }
-
-        .qty-btn {
-            width: 32px;
-            height: 32px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: var(--bg-body);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-md);
-            cursor: pointer;
-            font-size: 1.1rem;
-        }
-
-        .qty-btn:hover {
-            background: var(--border);
-        }
-
-        .item-qty {
-            font-weight: 600;
-            font-size: .875rem;
-            width: 24px;
-            text-align: center;
-        }
-
-        .item-total {
-            font-weight: 600;
-            width: 70px;
-            text-align: right;
-        }
-
-        .order-footer {
-            padding: 1rem;
-            border-top: 1px solid var(--border);
-            background: var(--bg-surface);
-        }
-
-        .order-total-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 1.25rem;
-            font-weight: 700;
-            margin-bottom: 1rem;
-        }
-
-        .order-actions {
-            display: grid;
-            grid-template-columns: 1fr 2fr;
-            gap: 1rem;
-        }
-
-        .modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 100;
-            opacity: 1;
-            transition: opacity .2s;
-        }
-
-        .modal.hidden {
-            opacity: 0;
-            pointer-events: none;
-        }
-
-        .modal-backdrop {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(15, 23, 42, .5);
-            backdrop-filter: blur(2px);
-        }
-
-        .modal-content {
-            position: relative;
-            background: var(--bg-surface);
-            border-radius: var(--radius-lg);
-            box-shadow: var(--shadow-lg);
-            padding: 2rem;
-            width: 90%;
-            z-index: 101;
-            transform: scale(1);
-            transition: transform .2s;
-        }
-
-        .modal.hidden .modal-content {
-            transform: scale(.95);
-        }
-
-        .modal-sm {
-            max-width: 400px;
-        }
-
-        .modal-md {
-            max-width: 500px;
-        }
-
-        .modal-title {
-            font-size: 1.25rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .modal-message {
-            color: var(--text-muted);
-            margin-bottom: 1.5rem;
-        }
-
-        .modal-actions {
-            display: flex;
-            justify-content: flex-end;
-            gap: 1rem;
-            margin-top: 1.5rem;
-        }
-
-        .menu-categories-bar {
-            display: flex;
-            gap: .5rem;
-            margin-bottom: 1.5rem;
-            flex-wrap: wrap;
-        }
-
-        .menu-products-list {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-            gap: 1rem;
-        }
-
-        .product-card {
-            background: var(--bg-surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-md);
-            padding: 1rem;
-            display: flex;
-            flex-direction: column;
-            gap: .5rem;
-        }
-
-        .product-category-tag {
-            font-size: .75rem;
-            color: var(--primary);
-            background: var(--primary-light);
-            padding: .1rem .5rem;
-            border-radius: 1rem;
-            align-self: flex-start;
-        }
-
-        .product-name {
-            font-weight: 600;
-        }
-
-        .product-price {
-            font-weight: 700;
-            color: var(--text-muted);
-        }
-
-        .product-actions {
-            display: flex;
-            gap: .5rem;
-            margin-top: .5rem;
-            border-top: 1px solid var(--border);
-            padding-top: .75rem;
-        }
-
-        .history-controls {
-            display: flex;
-            gap: 1rem;
-        }
-
-        .history-summary {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 1rem;
-            margin-bottom: 2rem;
-            flex-shrink: 0;
-        }
-
-        .summary-card {
-            background: var(--bg-surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-md);
-            padding: 1.5rem;
-        }
-
-        .summary-title {
-            font-size: .875rem;
-            color: var(--text-muted);
-            margin-bottom: .5rem;
-        }
-
-        .summary-value {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--primary);
-        }
-
-        .history-list {
-            background: var(--bg-surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-md);
-            overflow: visible;
-            flex-shrink: 0;
-        }
-
-        .history-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1rem 1.5rem;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .history-item:last-child {
-            border-bottom: none;
-        }
-
-        .history-item-info h4 {
-            font-weight: 600;
-            margin-bottom: .25rem;
-        }
-
-        .history-item-date {
-            font-size: .875rem;
-            color: var(--text-muted);
-        }
-
-        .history-item-total {
-            font-weight: 700;
-            font-size: 1.125rem;
-        }
-
-        .history-item-details {
-            font-size: .875rem;
-            color: var(--text-muted);
-            margin-top: .25rem;
-        }
-
-        .print-area {
-            display: none;
-        }
-
-        @media print {
-            body * {
-                visibility: hidden;
-            }
-
-            body.printing-ticket #print-ticket,
-            body.printing-ticket #print-ticket * {
-                visibility: visible;
-            }
-
-            body.printing-comanda #print-comanda,
-            body.printing-comanda #print-comanda * {
-                visibility: visible;
-            }
-
-            #print-ticket,
-            #print-comanda {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 80mm;
-                margin: 0;
-                padding: 5mm;
-                font-family: monospace;
-                font-size: 14px;
-                font-weight: bold;
-                color: #000;
-                display: block;
-            }
-
-            .ticket-header {
-                text-align: center;
-                margin-bottom: 10px;
-            }
-
-            .ticket-brand {
-                font-size: 18px;
-                font-weight: bold;
-                margin: 0 0 5px 0;
-            }
-
-            .ticket-divider {
-                border-top: 1px dashed #000;
-                margin: 5px 0;
-                color: transparent;
-                height: 1px;
-            }
-
-            .ticket-items {
-                width: 100%;
-                border-collapse: collapse;
-                margin: 5px 0;
-            }
-
-            .ticket-th-left,
-            .ticket-td-left {
-                text-align: left;
-            }
-
-            .ticket-th-right,
-            .ticket-td-right {
-                text-align: right;
-            }
-
-            .ticket-td-center {
-                text-align: center;
-            }
-
-            .ticket-items th,
-            .ticket-items td {
-                padding: 2px 0;
-            }
-
-            .ticket-total {
-                display: flex;
-                justify-content: space-between;
-                font-weight: bold;
-                font-size: 16px;
-                margin: 5px 0;
-            }
-
-            .ticket-footer {
-                text-align: center;
-                margin-top: 10px;
-                font-style: italic;
-            }
-
-            @page {
-                margin: 0;
-            }
-        }
-
-        @media screen and (max-width: 1024px) {
-            body {
-                flex-direction: column;
-            }
-
-            .sidebar {
-                width: 100%;
-                height: auto;
-                flex-direction: row;
-                border-right: none;
-                border-bottom: 1px solid var(--border);
-                order: -1;
-                padding: 0;
-                flex-shrink: 0;
-            }
-
-            .sidebar-brand {
-                display: none;
-            }
-
-            .sidebar-nav {
-                flex-direction: row;
-                justify-content: space-around;
-                padding: .5rem 0;
-                align-items: center;
-                flex: 1;
-            }
-
-            .nav-btn {
-                flex-direction: column;
-                width: auto;
-                padding: .5rem .75rem;
-                gap: .15rem;
-                font-size: .7rem;
-            }
-
-            .nav-btn.active {
-                background: transparent;
-                color: var(--primary);
-            }
-
-            .sidebar-footer {
-                display: none;
-            }
-
-            .main-content {
-                flex: 1;
-                overflow: hidden;
-            }
-
-            .view {
-                padding: 1rem;
-            }
-
-            .view-title {
-                font-size: 1.25rem;
-            }
-
-            .order-panel {
-                width: 100%;
-            }
-
-            #btn-change-role-mesero {
-                display: inline-flex !important;
-            }
-        }
-    </style>
-    <link rel="stylesheet" href="styles.css?v=10">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css?v=14">
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#047857">
+    <meta name="theme-color" content="#141414">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <link rel="icon" href="icon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="icon.svg">
 </head>
 
 <body>
     <script>
-        window.onerror = function (msg, url, lineNo, columnNo, error) {
-            alert('Error JS: ' + msg + '\nLínea: ' + lineNo);
+        // Errores inesperados: aviso no bloqueante (antes era un alert())
+        window.onerror = function (msg, url, lineNo) {
+            console.error(msg, url, lineNo);
+            if (window.toast) window.toast('Error inesperado: ' + msg, 'error');
             return false;
         };
     </script>
 
-    <div id="role-selection-overlay" class="modal">
+    <!-- Sprite de íconos (trazo 2px, 24×24) -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <defs>
+            <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
+            <symbol id="i-minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round"><path d="M5 12h14"/></symbol>
+            <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+            <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+            <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></symbol>
+            <symbol id="i-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></symbol>
+            <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+            <symbol id="i-grip" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></symbol>
+            <symbol id="i-table" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M6 12v7M18 12v7"/></symbol>
+            <symbol id="i-round" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5"/></symbol>
+            <symbol id="i-bar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="6" width="18" height="10" rx="2"/><path d="M8 16v4M16 16v4"/></symbol>
+            <symbol id="i-sofa" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 11V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v3"/><path d="M3 13a2 2 0 0 1 4 0v2h10v-2a2 2 0 0 1 4 0v5H3z"/></symbol>
+            <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+            <symbol id="i-cup" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h12v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V9z"/><path d="M16 10h1.5a2.5 2.5 0 0 1 0 5H16"/><path d="M8 3v2M12 3v2"/></symbol>
+            <symbol id="i-receipt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></symbol>
+            <symbol id="i-gift" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M5 12v8h14v-8M12 8v12M12 8S10.5 4 8.5 4a2 2 0 0 0 0 4M12 8s1.5-4 3.5-4a2 2 0 0 1 0 4"/></symbol>
+            <symbol id="i-card" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M11 18h2"/></symbol>
+            <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></symbol>
+            <symbol id="i-qr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M20 20h-3M14 20v.01" stroke-linecap="round"/></symbol>
+            <symbol id="i-camera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 8a2 2 0 0 1 2-2h2.5l1.5-2h6l1.5 2H19a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+            <symbol id="i-stop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="5" width="14" height="14" rx="2"/></symbol>
+            <symbol id="i-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></symbol>
+            <symbol id="i-list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01"/></symbol>
+            <symbol id="i-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></symbol>
+            <symbol id="i-coins" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><ellipse cx="9" cy="7" rx="6" ry="3"/><path d="M3 7v5c0 1.7 2.7 3 6 3s6-1.3 6-3V7"/><path d="M9 15v2c0 1.7 2.7 3 6 3s6-1.3 6-3v-5c0-1.6-2.4-2.9-5.5-3"/></symbol>
+            <symbol id="i-kds" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 20V9"/></symbol>
+            <symbol id="i-star" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></symbol>
+            <symbol id="i-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+            <symbol id="i-swap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l4 4-4 4M21 7H9M7 21l-4-4 4-4M3 17h12"/></symbol>
+            <symbol id="i-more" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></symbol>
+            <symbol id="i-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></symbol>
+            <symbol id="i-send" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3L10 14M21 3l-7 18-4-7-7-4z"/></symbol>
+            <symbol id="i-printer" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M7 9V3h10v6M7 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><rect x="7" y="14" width="10" height="7"/></symbol>
+            <symbol id="i-cash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></symbol>
+            <symbol id="i-bluetooth" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7l10 10-5 4V3l5 4L7 17"/></symbol>
+            <symbol id="i-store" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 9l1.5-5h13L20 9M4 9h16v2a3 3 0 0 1-5.3 2A3 3 0 0 1 12 14a3 3 0 0 1-2.7-1A3 3 0 0 1 4 11zM5 13v8h14v-8"/></symbol>
+            <symbol id="i-brand" viewBox="0 0 64 64">
+                <circle cx="32" cy="32" r="30" fill="#FFE500"/>
+                <ellipse cx="32" cy="32" rx="14" ry="11" fill="#141414"/>
+                <path d="M19 33c5.5-5 11.5 3.5 17-1.3s7.5-2.7 9-1.3" fill="none" stroke="#FFE500" stroke-width="2.6" stroke-linecap="round"/>
+            </symbol>
+        </defs>
+    </svg>
+
+    <!-- ===== Selección de rol ===== -->
+    <div id="role-selection-overlay" class="modal role-overlay" role="dialog" aria-modal="true" aria-labelledby="role-title">
         <div class="modal-backdrop"></div>
-        <div class="modal-content modal-sm">
-            <h2 style="margin-bottom:1.5rem;text-align:center;">Seleccionar Rol</h2>
-            <div style="display:flex;gap:1rem;">
-                <button id="btn-role-mesero" class="btn btn-primary" style="flex:1;padding:2rem 1rem;">Mesero<br><small
-                        style="font-weight:400;opacity:0.8;">Tomar Pedidos</small></button>
-                <button id="btn-role-barista" class="btn btn-primary"
-                    style="flex:1;padding:2rem 1rem;background-color:#10b981;border-color:#10b981;">Preparación<br><small
-                        style="font-weight:400;opacity:0.8;">Comandas (KDS)</small></button>
+        <div class="role-card">
+            <svg class="role-logo" width="64" height="64" aria-hidden="true"><use href="#i-brand"/></svg>
+            <h2 id="role-title" class="role-title">Buen día</h2>
+            <p class="role-sub">¿Cómo vas a usar este dispositivo?</p>
+            <div class="role-options">
+                <button id="btn-role-mesero" class="role-option">
+                    <span class="role-option-icon"><svg width="28" height="28"><use href="#i-grid"/></svg></span>
+                    <span class="role-option-text"><strong>Mesero / Caja</strong><small>Mesas, pedidos y cobros</small></span>
+                </button>
+                <button id="btn-role-barista" class="role-option role-option-accent">
+                    <span class="role-option-icon"><svg width="28" height="28"><use href="#i-cup"/></svg></span>
+                    <span class="role-option-text"><strong>Preparación</strong><small>Comandas de barra y cocina</small></span>
+                </button>
             </div>
         </div>
     </div>
 
+    <!-- ===== Barra superior (solo celular) ===== -->
+    <header class="mobile-topbar">
+        <div class="topbar-brand">
+            <svg width="30" height="30" aria-hidden="true"><use href="#i-brand"/></svg>
+            <span>Buen día</span>
+        </div>
+        <div class="topbar-right">
+            <span class="connection-status" role="status">Conectando…</span>
+            <span class="topbar-total" title="Venta del día"><small>Hoy</small> <b class="daily-total">$0</b></span>
+        </div>
+    </header>
+
+    <!-- ===== Navegación: sidebar (escritorio) / barra inferior (celular) ===== -->
     <aside id="sidebar" class="sidebar">
         <div class="sidebar-brand">
-            <div class="brand-icon">&#9749;</div>
-            <span class="brand-text">Buen Dia Cafe</span>
+            <svg class="brand-mark" width="40" height="40" aria-hidden="true"><use href="#i-brand"/></svg>
+            <div class="brand-words">
+                <span class="brand-text">Buen día</span>
+                <span class="brand-sub">Café · Control</span>
+            </div>
         </div>
-        <nav class="sidebar-nav">
+        <nav class="sidebar-nav" aria-label="Secciones">
             <button class="nav-btn active" data-view="tables" id="nav-tables">
-                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="3" y="3" width="7" height="7" rx="1" />
-                    <rect x="14" y="3" width="7" height="7" rx="1" />
-                    <rect x="3" y="14" width="7" height="7" rx="1" />
-                    <rect x="14" y="14" width="7" height="7" rx="1" />
-                </svg>
-                <span>Mesas</span>
+                <svg class="nav-icon" aria-hidden="true"><use href="#i-grid"/></svg><span>Mesas</span>
             </button>
             <button class="nav-btn" data-view="menu" id="nav-menu">
-                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-                <span>Menu</span>
+                <svg class="nav-icon" aria-hidden="true"><use href="#i-cup"/></svg><span>Menú</span>
             </button>
             <button class="nav-btn" data-view="history" id="nav-history">
-                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10" />
-                    <path d="M12 6v6l4 2" />
-                </svg>
-                <span>Historial</span>
-            </button>
-            <button class="nav-btn" data-view="balance" id="nav-balance">
-                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="12" y1="1" x2="12" y2="23"></line>
-                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-                </svg>
-                <span>Balance</span>
-            </button>
-            <button class="nav-btn" data-view="kds" id="nav-kds">
-                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M3 3h18v18H3zM3 9h18M9 21V9" />
-                </svg>
-                <span>Preparación</span>
+                <svg class="nav-icon" aria-hidden="true"><use href="#i-receipt"/></svg><span>Ventas</span>
             </button>
             <button class="nav-btn" data-view="loyalty" id="nav-loyalty">
-                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                </svg>
-                <span>Fidelidad</span>
+                <svg class="nav-icon" aria-hidden="true"><use href="#i-star"/></svg><span>Fidelidad</span>
             </button>
-            <button class="nav-btn" data-view="settings" id="nav-settings">
-                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="3" />
-                    <path
-                        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-                </svg>
-                <span>Configuración</span>
+            <div class="nav-group-label">Gestión</div>
+            <button class="nav-btn nav-secondary" data-view="kds" id="nav-kds">
+                <svg class="nav-icon" aria-hidden="true"><use href="#i-kds"/></svg><span>Preparación</span>
             </button>
-            <button class="nav-btn" data-view="appconfig" id="nav-appconfig">
-                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
-                    <line x1="12" y1="18" x2="12.01" y2="18"/>
-                </svg>
-                <span>Config App Cliente</span>
+            <button class="nav-btn nav-secondary" data-view="balance" id="nav-balance">
+                <svg class="nav-icon" aria-hidden="true"><use href="#i-coins"/></svg><span>Costos</span>
+            </button>
+            <button class="nav-btn nav-secondary" data-view="appconfig" id="nav-appconfig">
+                <svg class="nav-icon" aria-hidden="true"><use href="#i-card"/></svg><span>App clientes</span>
+            </button>
+            <button class="nav-btn nav-secondary" data-view="settings" id="nav-settings">
+                <svg class="nav-icon" aria-hidden="true"><use href="#i-settings"/></svg><span>Ajustes</span>
+            </button>
+            <button class="nav-more" id="nav-more" aria-haspopup="true" aria-expanded="false" aria-controls="more-sheet">
+                <svg class="nav-icon" aria-hidden="true"><use href="#i-more"/></svg><span>Más</span>
             </button>
         </nav>
         <div class="sidebar-footer">
-            <span id="connection-status"
-                style="display:block;text-align:center;font-size:0.75rem;font-weight:600;margin-bottom:0.5rem;">●
-                Conectando...</span>
-            <button id="btn-change-role" class="btn btn-outline" style="width:100%;margin-bottom:1rem;">Cambiar
-                Rol</button>
-            <div class="daily-total">
-                <span class="daily-label">Venta del dia</span>
-                <span class="daily-amount" id="daily-total">$0.00</span>
+            <div class="daily-box">
+                <span class="daily-label">Venta del día</span>
+                <span class="daily-amount daily-total" id="daily-total">$0</span>
+            </div>
+            <div class="sidebar-footer-row">
+                <span class="connection-status" id="connection-status" role="status">Conectando…</span>
+                <button id="btn-change-role" class="btn-link"><svg width="14" height="14" aria-hidden="true"><use href="#i-swap"/></svg> Cambiar rol</button>
             </div>
         </div>
     </aside>
 
+    <!-- Hoja "Más" (celular) -->
+    <div id="more-sheet" class="more-sheet hidden" role="dialog" aria-modal="true" aria-label="Más secciones">
+        <div class="more-sheet-backdrop" data-close-more></div>
+        <div class="more-sheet-panel">
+            <div class="sheet-handle" aria-hidden="true"></div>
+            <div class="more-grid">
+                <button class="nav-btn" data-view="kds"><svg class="nav-icon"><use href="#i-kds"/></svg><span>Preparación</span></button>
+                <button class="nav-btn" data-view="balance"><svg class="nav-icon"><use href="#i-coins"/></svg><span>Costos</span></button>
+                <button class="nav-btn" data-view="appconfig"><svg class="nav-icon"><use href="#i-card"/></svg><span>App clientes</span></button>
+                <button class="nav-btn" data-view="settings"><svg class="nav-icon"><use href="#i-settings"/></svg><span>Ajustes</span></button>
+            </div>
+            <button class="btn btn-outline btn-block" id="btn-change-role-mesero"><svg width="18" height="18"><use href="#i-swap"/></svg> Cambiar rol</button>
+        </div>
+    </div>
+
     <main id="main-content" class="main-content">
+        <!-- ===== Mesas ===== -->
         <section id="view-tables" class="view active">
             <header class="view-header">
                 <div>
                     <h1 class="view-title">Mesas</h1>
-                    <p class="view-subtitle">Gestiona las mesas y pedidos</p>
+                    <p class="view-subtitle">Toca una mesa para tomar o cobrar el pedido</p>
                 </div>
-                <div style="display:flex;gap:0.5rem;align-items:center;">
-                    <button class="btn btn-outline" id="btn-change-role-mesero" style="display:none;">Cambiar
-                        Rol</button>
+                <div class="view-actions">
                     <button class="btn btn-primary" id="btn-add-table">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2.5">
-                            <line x1="12" y1="5" x2="12" y2="19" />
-                            <line x1="5" y1="12" x2="19" y2="12" />
-                        </svg>
-                        Nueva Mesa
+                        <svg width="18" height="18" aria-hidden="true"><use href="#i-plus"/></svg> Nueva mesa
                     </button>
                 </div>
             </header>
-            <div class="zone-selector-bar" style="display:flex; gap:0.5rem; margin-bottom:1.5rem;">
-                <button class="btn btn-outline zone-tab active" data-zone="salon" id="tab-zone-salon">Salón (Mapa)</button>
-                <button class="btn btn-outline zone-tab" data-zone="terraza" id="tab-zone-terraza">Terraza (Mapa)</button>
-                <button class="btn btn-outline zone-tab" data-zone="pendientes" id="tab-zone-pendientes">Pendientes (Lista)</button>
+            <div class="table-legend" aria-hidden="true">
+                <span><i class="dot dot-free"></i>Libre</span>
+                <span><i class="dot dot-busy"></i>Ocupada</span>
+                <span><i class="dot dot-ready"></i>Bandeja lista</span>
+            </div>
+            <div class="zone-selector-bar segmented" role="tablist" aria-label="Zonas">
+                <button class="zone-tab active" role="tab" data-zone="salon" id="tab-zone-salon">Salón</button>
+                <button class="zone-tab" role="tab" data-zone="terraza" id="tab-zone-terraza">Terraza</button>
+                <button class="zone-tab" role="tab" data-zone="pendientes" id="tab-zone-pendientes">Pendientes</button>
             </div>
             <div id="tables-container">
                 <div class="zone-section" id="zone-section-salon">
-                    <div class="zone-section-header">
-                        <h2>Salón</h2>
-                        <hr class="zone-divider">
-                    </div>
+                    <div class="zone-section-header"><h2>Salón</h2></div>
                     <div class="floor-plan-container map-only">
                         <div class="floor-plan-canvas" id="canvas-salon"></div>
                     </div>
                     <div class="tables-grid grid-only" id="grid-salon"></div>
                 </div>
                 <div class="zone-section" id="zone-section-terraza" style="display:none;">
-                    <div class="zone-section-header">
-                        <h2>Terraza</h2>
-                        <hr class="zone-divider">
-                    </div>
+                    <div class="zone-section-header"><h2>Terraza</h2></div>
                     <div class="floor-plan-container map-only">
                         <div class="floor-plan-canvas" id="canvas-terraza"></div>
                     </div>
                     <div class="tables-grid grid-only" id="grid-terraza"></div>
                 </div>
                 <div class="zone-section" id="zone-section-pendientes" style="display:none;">
-                    <div class="zone-section-header">
-                        <h2>Pendientes</h2>
-                        <hr class="zone-divider">
-                    </div>
+                    <div class="zone-section-header"><h2>Pendientes</h2></div>
                     <div class="tables-grid" id="grid-pendientes"></div>
                 </div>
             </div>
         </section>
 
+        <!-- ===== Menú ===== -->
         <section id="view-menu" class="view">
             <header class="view-header">
                 <div>
-                    <h1 class="view-title">Menu</h1>
-                    <p class="view-subtitle">Administra productos y precios</p>
+                    <h1 class="view-title">Menú</h1>
+                    <p class="view-subtitle">Productos, precios y categorías</p>
                 </div>
-                <button class="btn btn-primary" id="btn-add-product">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                        stroke-width="2.5">
-                        <line x1="12" y1="5" x2="12" y2="19" />
-                        <line x1="5" y1="12" x2="19" y2="12" />
-                    </svg>
-                    Nuevo Producto
-                </button>
+                <div class="view-actions">
+                    <button class="btn btn-primary" id="btn-add-product">
+                        <svg width="18" height="18" aria-hidden="true"><use href="#i-plus"/></svg> Nuevo producto
+                    </button>
+                </div>
             </header>
-            <div id="sales-chart-section" class="sales-chart-container" style="display: none; margin-bottom: 2rem;">
-                <h3 class="sales-chart-title">🏆 Productos Más Vendidos</h3>
+            <div id="sales-chart-section" class="card sales-chart-container" style="display:none;">
+                <h3 class="card-title"><svg width="18" height="18" aria-hidden="true"><use href="#i-chart"/></svg> Más vendidos</h3>
                 <div class="chart-bars-list" id="sales-chart-list"></div>
             </div>
-            <div class="menu-categories-bar" id="menu-categories-bar"></div>
+            <div class="pill-bar" id="menu-categories-bar"></div>
             <div class="menu-products-list" id="menu-products-list"></div>
         </section>
 
+        <!-- ===== Historial ===== -->
         <section id="view-history" class="view">
             <header class="view-header">
                 <div>
-                    <h1 class="view-title">Historial de Ventas</h1>
-                    <p class="view-subtitle">Registro de cobros</p>
+                    <h1 class="view-title">Ventas</h1>
+                    <p class="view-subtitle">Historial de cobros y resumen del período</p>
                 </div>
                 <div class="history-controls">
-                    <input type="month" id="history-month-filter" class="input-field" title="Mes completo">
-                    <input type="date" id="history-date-filter" class="input-field" title="Día específico">
-                    <button class="btn btn-outline" id="btn-clear-filter">Todos</button>
+                    <label class="field-inline"><span>Mes</span><input type="month" id="history-month-filter" class="input-field"></label>
+                    <label class="field-inline"><span>Día</span><input type="date" id="history-date-filter" class="input-field"></label>
+                    <button class="btn btn-outline" id="btn-clear-filter">Todo</button>
                 </div>
             </header>
             <div class="history-summary" id="history-summary"></div>
-            <div class="history-list" id="history-list"></div>
+            <div class="history-list card" id="history-list"></div>
         </section>
 
+        <!-- ===== Costos (Balance) ===== -->
         <section id="view-balance" class="view">
             <header class="view-header">
                 <div>
-                    <h1 class="view-title">Balance de Productos</h1>
-                    <p class="view-subtitle">Calcula el costo de ingredientes y márgenes de ganancia</p>
+                    <h1 class="view-title">Costos y recetas</h1>
+                    <p class="view-subtitle">Costo de ingredientes y margen de cada producto</p>
                 </div>
             </header>
-            
-            <div class="balance-tabs" style="display:flex; gap:0.5rem; margin-bottom:1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">
-                <button class="btn btn-outline balance-tab active" data-tab="ingredients" id="tab-balance-ingredients">Registro de Ingredientes</button>
-                <button class="btn btn-outline balance-tab" data-tab="recipes" id="tab-balance-recipes">Recetas por Producto</button>
+
+            <div class="segmented balance-tabs" role="tablist">
+                <button class="balance-tab active" role="tab" data-tab="ingredients" id="tab-balance-ingredients">Ingredientes</button>
+                <button class="balance-tab" role="tab" data-tab="recipes" id="tab-balance-recipes">Recetas</button>
             </div>
-            
-            <!-- Sub-vista 1: Registro de Ingredientes -->
+
             <div id="balance-tab-ingredients-content" class="balance-sub-view">
-                <div class="balance-container" style="grid-template-columns: 350px 1fr;">
-                    <!-- Panel izquierdo: Agregar Ingrediente -->
-                    <div class="balance-card">
-                        <h3 class="balance-card-title">Nuevo Ingrediente</h3>
+                <div class="balance-container">
+                    <div class="card">
+                        <h3 class="card-title">Nuevo ingrediente</h3>
                         <div class="form-group">
-                            <label class="form-label" for="reg-ing-name">Nombre del Ingrediente</label>
-                            <input type="text" id="reg-ing-name" class="input-field" placeholder="Ej: Café en grano, Leche...">
+                            <label class="form-label" for="reg-ing-name">Nombre</label>
+                            <input type="text" id="reg-ing-name" class="input-field" placeholder="Ej: Café en grano, Leche…">
                         </div>
                         <div class="form-row">
                             <div class="form-group">
-                                <label class="form-label" for="reg-ing-unit">Unidad Base</label>
+                                <label class="form-label" for="reg-ing-unit">Unidad base</label>
                                 <select id="reg-ing-unit" class="input-field">
                                     <option value="g">Gramos (g)</option>
                                     <option value="ml">Mililitros (ml)</option>
                                     <option value="oz">Onzas (oz)</option>
-                                    <option value="unidades">Entero/Unidad</option>
+                                    <option value="unidades">Unidad</option>
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label class="form-label" for="reg-ing-cost">Costo por Unidad ($)</label>
-                                <input type="number" id="reg-ing-cost" class="input-field" placeholder="0.05" min="0" step="any">
+                                <label class="form-label" for="reg-ing-cost">Costo por unidad</label>
+                                <input type="number" id="reg-ing-cost" class="input-field" placeholder="0,35" min="0" step="any" inputmode="decimal">
                             </div>
                         </div>
-                        <button class="btn btn-primary" id="btn-reg-add-ingredient" style="width:100%; justify-content:center; margin-top: 1rem;">Registrar Ingrediente</button>
+                        <button class="btn btn-primary btn-block" id="btn-reg-add-ingredient">Registrar ingrediente</button>
                     </div>
-                    <!-- Panel derecho: Listado de Ingredientes -->
-                    <div class="balance-card" style="flex:1;">
-                        <h3 class="balance-card-title">Ingredientes Registrados</h3>
-                        <div class="search-wrapper" style="margin-bottom:1rem;">
-                            <input type="text" id="reg-ing-search" class="input-field" placeholder="Buscar ingrediente por nombre...">
+                    <div class="card">
+                        <h3 class="card-title">Ingredientes registrados</h3>
+                        <div class="search-wrapper">
+                            <svg class="search-icon" width="18" height="18" aria-hidden="true"><use href="#i-search"/></svg>
+                            <input type="search" id="reg-ing-search" class="input-field search-input" placeholder="Buscar ingrediente…" aria-label="Buscar ingrediente">
                         </div>
-                        <div style="overflow-x:auto;">
-                            <table style="width:100%; border-collapse:collapse; font-size:0.9rem;" id="reg-ingredients-table">
+                        <div class="table-scroll">
+                            <table class="data-table" id="reg-ingredients-table">
                                 <thead>
-                                    <tr style="border-bottom: 2px solid var(--border); text-align:left;">
-                                        <th style="padding:0.75rem 0.5rem; font-weight:600; color:var(--text-muted);">Nombre</th>
-                                        <th style="padding:0.75rem 0.5rem; font-weight:600; color:var(--text-muted);">Unidad Base</th>
-                                        <th style="padding:0.75rem 0.5rem; text-align:right; font-weight:600; color:var(--text-muted);">Costo Unitario</th>
-                                        <th style="padding:0.75rem 0.5rem; text-align:center; width:120px; font-weight:600; color:var(--text-muted);">Acciones</th>
-                                    </tr>
+                                    <tr><th>Nombre</th><th>Unidad</th><th class="td-num">Costo unitario</th><th class="td-actions-h"><span class="sr-only">Acciones</span></th></tr>
                                 </thead>
-                                <tbody id="reg-ingredients-list-body">
-                                </tbody>
+                                <tbody id="reg-ingredients-list-body"></tbody>
                             </table>
                         </div>
                     </div>
                 </div>
             </div>
-            
-            <!-- Sub-vista 2: Recetas por Producto -->
+
             <div id="balance-tab-recipes-content" class="balance-sub-view" style="display:none;">
-                <div class="balance-container" style="grid-template-columns: 350px 1fr;">
-                    <!-- Panel izquierdo: Selección de Producto e Ingrediente -->
-                    <div class="balance-card">
-                        <h3 class="balance-card-title">Receta del Producto</h3>
+                <div class="balance-container">
+                    <div class="card">
+                        <h3 class="card-title">Receta del producto</h3>
                         <div class="form-group">
                             <label class="form-label" for="recipe-cat-select">Categoría</label>
-                            <select id="recipe-cat-select" class="input-field">
-                                <option value="">-- Categoria --</option>
-                            </select>
+                            <select id="recipe-cat-select" class="input-field"><option value="">Elige categoría</option></select>
                         </div>
                         <div class="form-group">
                             <label class="form-label" for="recipe-prod-select">Producto</label>
-                            <select id="recipe-prod-select" class="input-field">
-                                <option value="">-- Elige Producto --</option>
-                            </select>
+                            <select id="recipe-prod-select" class="input-field"><option value="">Elige producto</option></select>
                         </div>
-                        
-                        <div id="recipe-ingredient-add-form" style="display:none; flex-direction:column; gap:1rem; border-top:1px solid var(--border); padding-top:1.25rem; margin-top:1.25rem;">
-                            <h4 style="font-size:1rem; font-weight:600; color:var(--text-main);">Agregar a la Receta</h4>
+                        <div id="recipe-ingredient-add-form" class="recipe-add-form" style="display:none;">
+                            <h4 class="subhead">Agregar ingrediente</h4>
                             <div class="form-group">
-                                <label class="form-label" for="recipe-ing-select">Seleccionar Ingrediente Base</label>
-                                <select id="recipe-ing-select" class="input-field">
-                                    <option value="">-- Elige Ingrediente --</option>
-                                </select>
+                                <label class="form-label" for="recipe-ing-select">Ingrediente</label>
+                                <select id="recipe-ing-select" class="input-field"><option value="">Elige ingrediente</option></select>
                             </div>
                             <div class="form-row">
-                                <div class="form-group" style="margin-bottom:0;">
+                                <div class="form-group">
                                     <label class="form-label" for="recipe-ing-qty">Cantidad</label>
-                                    <input type="number" id="recipe-ing-qty" class="input-field" placeholder="15" min="0" step="any">
+                                    <input type="number" id="recipe-ing-qty" class="input-field" placeholder="15" min="0" step="any" inputmode="decimal">
                                 </div>
-                                <div class="form-group" style="margin-bottom:0;">
-                                    <label class="form-label">Unidad</label>
-                                    <input type="text" id="recipe-ing-unit-display" class="input-field" readonly style="background:#cbd5e1; opacity:0.8;">
+                                <div class="form-group">
+                                    <label class="form-label" for="recipe-ing-unit-display">Unidad</label>
+                                    <input type="text" id="recipe-ing-unit-display" class="input-field" readonly tabindex="-1">
                                 </div>
                             </div>
-                            <button class="btn btn-primary" id="btn-recipe-add-ingredient" style="width:100%; justify-content:center; margin-top:1rem;">Agregar a Receta</button>
+                            <button class="btn btn-primary btn-block" id="btn-recipe-add-ingredient">Agregar a la receta</button>
                         </div>
                     </div>
-                    
-                    <!-- Panel derecho: Resumen y Listado de Receta -->
-                    <div class="balance-details" style="display:flex; flex-direction:column; gap:1.5rem; flex:1;">
-                        <!-- Resumen monetario -->
-                        <div id="recipe-summary-cards" style="display:none; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:1rem; width:100%;">
-                            <div class="summary-card">
-                                <div class="summary-title">Precio de Venta</div>
-                                <div class="summary-value" id="recipe-prod-price" style="color:var(--text-main); font-size:1.35rem;">$0.00</div>
-                            </div>
-                            <div class="summary-card">
-                                <div class="summary-title">Costo Receta</div>
-                                <div class="summary-value" id="recipe-total-cost" style="font-size:1.35rem;">$0.00</div>
-                            </div>
-                            <div class="summary-card">
-                                <div class="summary-title">Margen Ganancia</div>
-                                <div class="summary-value" id="recipe-margin" style="font-size:1.35rem;">$0.00</div>
-                            </div>
+
+                    <div class="balance-details">
+                        <div id="recipe-summary-cards" class="recipe-summary" style="display:none;">
+                            <div class="summary-card"><div class="summary-title">Precio de venta</div><div class="summary-value" id="recipe-prod-price">$0</div></div>
+                            <div class="summary-card"><div class="summary-title">Costo receta</div><div class="summary-value" id="recipe-total-cost">$0</div></div>
+                            <div class="summary-card"><div class="summary-title">Margen</div><div class="summary-value" id="recipe-margin">$0</div></div>
                         </div>
-                        
-                        <!-- Tabla de Receta -->
-                        <div class="summary-card" id="recipe-list-card" style="display:none; flex:1; width:100%;">
-                            <h3 style="margin-bottom:1rem; border-bottom:1px solid var(--border); padding-bottom:0.5rem; font-size:1rem; font-weight:600; color:var(--text-muted);">Ingredientes en la Receta</h3>
-                            <div style="overflow-x:auto;">
-                                <table style="width:100%; border-collapse:collapse; font-size:0.9rem;" id="recipe-ingredients-table">
+                        <div class="card" id="recipe-list-card" style="display:none;">
+                            <h3 class="card-title">Ingredientes en la receta</h3>
+                            <div class="table-scroll">
+                                <table class="data-table" id="recipe-ingredients-table">
                                     <thead>
-                                        <tr style="border-bottom: 2px solid var(--border); text-align:left;">
-                                            <th style="padding:0.75rem 0.5rem; font-weight:600; color:var(--text-muted);">Ingrediente</th>
-                                            <th style="padding:0.75rem 0.5rem; text-align:right; font-weight:600; color:var(--text-muted);">Cantidad</th>
-                                            <th style="padding:0.75rem 0.5rem; text-align:right; font-weight:600; color:var(--text-muted);">Costo Unitario</th>
-                                            <th style="padding:0.75rem 0.5rem; text-align:right; font-weight:600; color:var(--text-muted);">Subtotal Costo</th>
-                                            <th style="padding:0.75rem 0.5rem; text-align:center; width:50px; font-weight:600; color:var(--text-muted);">Borrar</th>
-                                        </tr>
+                                        <tr><th>Ingrediente</th><th class="td-num">Cantidad</th><th class="td-num">Costo unit.</th><th class="td-num">Subtotal</th><th class="td-actions-h"><span class="sr-only">Quitar</span></th></tr>
                                     </thead>
-                                    <tbody id="recipe-ingredients-list-body">
-                                    </tbody>
+                                    <tbody id="recipe-ingredients-list-body"></tbody>
                                 </table>
                             </div>
                         </div>
-                        
-                        <!-- Estado vacío -->
-                        <div class="summary-card" id="recipe-empty-state" style="text-align:center; padding:5rem 2rem; color:var(--text-muted); width:100%;">
-                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:1rem; opacity:0.5; color:var(--primary); display:block; margin-left:auto; margin-right:auto;">
-                                <line x1="12" y1="1" x2="12" y2="23"></line>
-                                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-                            </svg>
-                            <p style="font-weight:500;">Selecciona una categoría y producto a la izquierda para empezar a ver y calcular su receta.</p>
+                        <div class="card" id="recipe-empty-state">
+                            <div class="empty-state">
+                                <span class="empty-state-icon"><svg width="28" height="28"><use href="#i-coins"/></svg></span>
+                                <strong>Elige un producto</strong>
+                                <span>Selecciona categoría y producto para ver y calcular su receta.</span>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </section>
 
+        <!-- ===== Preparación (KDS) ===== -->
         <section id="view-kds" class="view">
-            <header class="view-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <header class="view-header">
                 <div>
-                    <h1 class="view-title">Comandas (Preparación)</h1>
-                    <p class="view-subtitle">Pedidos pendientes de preparación</p>
+                    <h1 class="view-title">Preparación</h1>
+                    <p class="view-subtitle"><span id="kds-count"></span><span class="kds-hint">Marca cada producto al terminarlo</span></p>
                 </div>
-                <button class="btn btn-outline" id="btn-change-role-barista" style="height:fit-content;">Cambiar
-                    Rol</button>
+                <div class="view-actions">
+                    <span class="connection-status kds-conn" role="status">Conectando…</span>
+                    <button class="btn btn-outline" id="btn-change-role-barista"><svg width="18" height="18" aria-hidden="true"><use href="#i-swap"/></svg> Cambiar rol</button>
+                </div>
             </header>
-            <div class="tables-grid" id="kds-grid"></div>
+            <div class="kds-grid" id="kds-grid"></div>
         </section>
 
+        <!-- ===== Ajustes ===== -->
         <section id="view-settings" class="view">
             <header class="view-header">
                 <div>
-                    <h1 class="view-title">Configuración</h1>
-                    <p class="view-subtitle">Impresoras Bluetooth y preferencias</p>
+                    <h1 class="view-title">Ajustes</h1>
+                    <p class="view-subtitle">Este dispositivo e impresoras</p>
                 </div>
             </header>
 
-            <div class="summary-card"
-                style="margin-bottom: 1.5rem; max-width: 600px; background: #e0f2fe; border: 1px solid #bae6fd;">
-                <h3 style="margin-bottom: 1rem; color: #0369a1;">Rol de este Dispositivo</h3>
-                <label style="display:flex; align-items:flex-start; gap:0.75rem; cursor:pointer;">
-                    <input type="checkbox" id="setting-is-server" style="transform: scale(1.3); margin-top: 0.25rem;">
-                    <div>
-                        <span style="font-weight: 600; color: #0c4a6e;">Actuar como Servidor de Impresión (Caja
-                            Principal)</span>
-                        <p style="font-size: 0.875rem; color: #0369a1; margin-top: 0.25rem;">Si activas esto, este PC
-                            procesará e imprimirá automáticamente las comandas enviadas por los meseros desde otras
-                            tablets.</p>
-                    </div>
-                </label>
-            </div>
-
-            <div class="summary-card" style="margin-bottom: 1.5rem; max-width: 600px;">
-                <h3 style="margin-bottom: 1rem;">Modo de Impresión</h3>
-                <div class="form-group">
-                    <select id="setting-print-mode" class="input-field" style="font-size: 1rem; padding: 0.75rem;">
-                        <option value="classic">Modo Clásico (USB / Diálogo del sistema)</option>
-                        <option value="bluetooth">Modo Directo (Bluetooth Silencioso)</option>
-                    </select>
+            <div class="settings-stack">
+                <div class="card card-highlight">
+                    <label class="switch-row">
+                        <span class="switch-text">
+                            <strong>Este dispositivo es la caja principal</strong>
+                            <small>Imprime automáticamente las comandas que envían los meseros desde otros dispositivos y muestra el plano de mesas.</small>
+                        </span>
+                        <input type="checkbox" id="setting-is-server" class="switch">
+                    </label>
                 </div>
-                <p style="font-size: 0.875rem; color: var(--text-muted); margin-top: 0.5rem;" id="print-mode-desc">
-                    El modo clásico abre la ventana de impresión normal de tu dispositivo para enviar boletas y comandas
-                    a tu impresora USB o red.
-                </p>
-            </div>
 
-            <div id="bluetooth-settings-panel" class="summary-card"
-                style="margin-bottom: 1.5rem; max-width: 600px; display: none;">
-                <h3 style="margin-bottom: 1rem;">Impresoras Térmicas (Bluetooth)</h3>
-
-                <label style="display:flex; align-items:center; gap:0.5rem; margin-bottom: 1.5rem; cursor:pointer;">
-                    <input type="checkbox" id="setting-same-printer" style="transform: scale(1.2);">
-                    <span>Usar la misma impresora para Caja y Cocina</span>
-                </label>
-
-                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
-                    <div style="border: 1px solid var(--border); padding: 1rem; border-radius: var(--radius-md);">
-                        <h4 style="margin-bottom: 0.5rem;">Impresora de Caja</h4>
-                        <p id="status-printer-caja"
-                            style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 1rem;">Estado:
-                            Desconectada</p>
-                        <button class="btn btn-outline" id="btn-pair-caja" style="width:100%;">Vincular Caja</button>
+                <div class="card">
+                    <h3 class="card-title"><svg width="18" height="18" aria-hidden="true"><use href="#i-printer"/></svg> Modo de impresión</h3>
+                    <div class="form-group">
+                        <label class="form-label" for="setting-print-mode">Cómo imprimir boletas y comandas</label>
+                        <select id="setting-print-mode" class="input-field">
+                            <option value="classic">Clásico (USB / diálogo del sistema)</option>
+                            <option value="bluetooth">Directo (Bluetooth, sin diálogo)</option>
+                        </select>
                     </div>
-
-                    <div id="container-printer-cocina"
-                        style="border: 1px solid var(--border); padding: 1rem; border-radius: var(--radius-md);">
-                        <h4 style="margin-bottom: 0.5rem;">Impresora de Cocina</h4>
-                        <p id="status-printer-cocina"
-                            style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 1rem;">Estado:
-                            Desconectada</p>
-                        <button class="btn btn-outline" id="btn-pair-cocina" style="width:100%;">Vincular
-                            Cocina</button>
-                    </div>
+                    <p class="help-text" id="print-mode-desc"></p>
                 </div>
-                <div
-                    style="margin-top: 1rem; padding: 1rem; background: var(--bg-body); border-radius: var(--radius-md); font-size: 0.875rem; color: var(--text-muted);">
-                    <strong>Importante:</strong> Las impresoras térmicas deben estar emparejadas con el dispositivo
-                    previamente. Usa Chrome para mejor compatibilidad.
+
+                <div id="bluetooth-settings-panel" class="card" style="display:none;">
+                    <h3 class="card-title"><svg width="18" height="18" aria-hidden="true"><use href="#i-bluetooth"/></svg> Impresoras térmicas</h3>
+                    <label class="check-row">
+                        <input type="checkbox" id="setting-same-printer">
+                        <span>Usar la misma impresora para caja y preparación</span>
+                    </label>
+                    <div class="printer-grid">
+                        <div class="printer-box">
+                            <h4>Caja</h4>
+                            <p class="help-text" id="status-printer-caja">Estado: desconectada</p>
+                            <button class="btn btn-outline btn-block" id="btn-pair-caja">Vincular caja</button>
+                        </div>
+                        <div class="printer-box" id="container-printer-cocina">
+                            <h4>Preparación</h4>
+                            <p class="help-text" id="status-printer-cocina">Estado: desconectada</p>
+                            <button class="btn btn-outline btn-block" id="btn-pair-cocina">Vincular preparación</button>
+                        </div>
+                    </div>
+                    <p class="note">Empareja la impresora con el dispositivo antes de vincularla. Funciona mejor en Chrome.</p>
                 </div>
             </div>
         </section>
 
-        <!-- Vista de Configuración App Cliente -->
+        <!-- ===== App clientes ===== -->
         <section id="view-appconfig" class="view">
             <header class="view-header">
                 <div>
-                    <h1 class="view-title">Configuración App Cliente</h1>
-                    <p class="view-subtitle">Gestiona qué ve el cliente en su aplicación</p>
+                    <h1 class="view-title">App de clientes</h1>
+                    <p class="view-subtitle">Lo que ven tus clientes en su tarjeta digital</p>
                 </div>
             </header>
 
-            <div class="summary-card" style="margin-bottom: 1.5rem; max-width: 600px;">
-                <h3 style="margin-bottom: 1rem;">Control del Local</h3>
-                <div class="form-group">
-                    <label class="form-label" for="setting-store-status">Estado del Local (App Cliente)</label>
-                    <select id="setting-store-status" class="input-field">
-                        <option value="auto">Automático (por horario)</option>
-                        <option value="open">Forzar Abierto</option>
-                        <option value="closed">Forzar Cerrado</option>
-                    </select>
+            <div class="settings-stack">
+                <div class="card">
+                    <h3 class="card-title"><svg width="18" height="18" aria-hidden="true"><use href="#i-store"/></svg> Estado del local</h3>
+                    <div class="form-group">
+                        <label class="form-label" for="setting-store-status">Mostrar el local como</label>
+                        <select id="setting-store-status" class="input-field">
+                            <option value="auto">Automático (por horario)</option>
+                            <option value="open">Abierto</option>
+                            <option value="closed">Cerrado</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" id="btn-save-store-status">Guardar estado</button>
                 </div>
-                <button class="btn btn-primary" id="btn-save-store-status" style="margin-top:0.5rem;">Guardar Estado</button>
-            </div>
 
-            <div class="summary-card" style="margin-bottom: 1.5rem; max-width: 600px;">
-                <h3 style="margin-bottom: 1rem;">Destacados de la App</h3>
-                <div class="form-group">
-                    <label class="form-label" for="setting-grano-nombre">Nombre del Grano (Headline)</label>
-                    <input type="text" id="setting-grano-nombre" class="input-field" placeholder="Colombia Huila">
+                <div class="card">
+                    <h3 class="card-title"><svg width="18" height="18" aria-hidden="true"><use href="#i-sun"/></svg> Destacados</h3>
+                    <div class="form-group">
+                        <label class="form-label" for="setting-grano-nombre">Grano de la semana</label>
+                        <input type="text" id="setting-grano-nombre" class="input-field" placeholder="Colombia Huila">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="setting-grano-desc">Notas del grano</label>
+                        <input type="text" id="setting-grano-desc" class="input-field" placeholder="Caramelo y frutos rojos">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="setting-cafe-semana">Promoción de la semana</label>
+                        <input type="text" id="setting-cafe-semana" class="input-field" placeholder="Mocaccino 15% OFF">
+                    </div>
+                    <button class="btn btn-primary" id="btn-save-cafe-semana">Guardar destacados</button>
                 </div>
-                <div class="form-group">
-                    <label class="form-label" for="setting-grano-desc">Descripción del Grano (Headline)</label>
-                    <input type="text" id="setting-grano-desc" class="input-field" placeholder="Caramelo y Frutos Rojos">
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="setting-cafe-semana">Destacado de la Semana (Banner debajo del headline)</label>
-                    <input type="text" id="setting-cafe-semana" class="input-field" placeholder="Mocaccino 15% OFF">
-                </div>
-                <button class="btn btn-primary" id="btn-save-cafe-semana" style="margin-top:0.5rem;">Guardar Destacados</button>
-            </div>
 
-            <div class="summary-card" style="margin-bottom: 1.5rem; max-width: 600px;">
-                <h3 style="margin-bottom: 1rem;">Configuración de Sendas (Premios)</h3>
-                <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">Define los premios intermedios para cada Senda (Ej: 3, 6, 10). Formato: <code>número_sello: Premio</code>.</p>
-                
-                <div id="tiers-config-container">
-                    <!-- Dinámicamente llenado por app.js -->
+                <div class="card">
+                    <h3 class="card-title"><svg width="18" height="18" aria-hidden="true"><use href="#i-gift"/></svg> Sendas de premios</h3>
+                    <p class="help-text">Premios intermedios por senda: en qué sello (1 a 10) y qué se gana.</p>
+                    <div id="tiers-config-container"></div>
+                    <button class="btn btn-primary" id="btn-save-tiers">Guardar sendas</button>
                 </div>
-                <button class="btn btn-primary" id="btn-save-tiers" style="margin-top:1rem;">Guardar Sendas</button>
             </div>
         </section>
-        <!-- Vista de Fidelización (POS / Administración) -->
+
+        <!-- ===== Fidelidad ===== -->
         <section id="view-loyalty" class="view">
-            <header class="view-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+            <header class="view-header">
                 <div>
-                    <h1 class="view-title">Club de Fidelidad</h1>
-                    <p class="view-subtitle">Gestión de tarjetas digitales de clientes y puntos</p>
+                    <h1 class="view-title">Club de fidelidad</h1>
+                    <p class="view-subtitle">Socios, sellos y canjes</p>
                 </div>
-                <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
-                    <button class="btn btn-outline" id="btn-scan-qr" style="gap:0.5rem;">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="3" y="3" width="7" height="7"/>
-                            <rect x="14" y="3" width="7" height="7"/>
-                            <rect x="14" y="14" width="7" height="7"/>
-                            <rect x="3" y="14" width="7" height="7"/>
-                        </svg>
-                        Escanear QR / Buscar ID
+                <div class="view-actions">
+                    <button class="btn btn-accent" id="btn-scan-qr">
+                        <svg width="18" height="18" aria-hidden="true"><use href="#i-qr"/></svg> Escanear / buscar
                     </button>
                     <button class="btn btn-primary" id="btn-add-customer">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                            <line x1="12" y1="5" x2="12" y2="19"/>
-                            <line x1="5" y1="12" x2="19" y2="12"/>
-                        </svg>
-                        Nuevo Cliente
+                        <svg width="18" height="18" aria-hidden="true"><use href="#i-plus"/></svg> Nuevo socio
                     </button>
                 </div>
             </header>
 
-            <div class="history-summary">
-                <div class="summary-card">
-                    <div class="summary-title">Socios Registrados</div>
-                    <div class="summary-value" id="loyalty-total-customers">0</div>
-                </div>
-                <div class="summary-card">
-                    <div class="summary-title">Total Sellos Entregados</div>
-                    <div class="summary-value" id="loyalty-total-stamps" style="color:var(--primary);">0</div>
-                </div>
-                <div class="summary-card">
-                    <div class="summary-title">Cafés de Regalo Canjeados</div>
-                    <div class="summary-value" id="loyalty-total-rewards" style="color:#d97706;">0</div>
-                </div>
+            <div class="history-summary loyalty-summary">
+                <div class="summary-card"><div class="summary-title">Socios</div><div class="summary-value" id="loyalty-total-customers">0</div></div>
+                <div class="summary-card"><div class="summary-title">Sellos</div><div class="summary-value" id="loyalty-total-stamps">0</div></div>
+                <div class="summary-card"><div class="summary-title">Canjes</div><div class="summary-value" id="loyalty-total-rewards">0</div></div>
             </div>
 
-            <div class="search-wrapper" style="margin-bottom: 1.5rem; max-width: 500px;">
-                <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="11" cy="11" r="8"/>
-                    <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                </svg>
-                <input type="text" id="loyalty-search" class="input-field search-input" placeholder="Buscar por nombre, teléfono o ID...">
+            <div class="search-wrapper search-wide">
+                <svg class="search-icon" width="18" height="18" aria-hidden="true"><use href="#i-search"/></svg>
+                <input type="search" id="loyalty-search" class="input-field search-input" placeholder="Buscar por nombre, teléfono o ID…" aria-label="Buscar socio">
             </div>
 
-            <div class="summary-card" style="padding:0; overflow:hidden;">
-                <div style="overflow-x:auto;">
-                    <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+            <div class="card card-flush">
+                <div class="table-scroll">
+                    <table class="data-table loyalty-table">
                         <thead>
-                            <tr style="background:var(--bg-body); border-bottom: 2px solid var(--border); text-align:left;">
-                                <th style="padding:0.875rem 1rem; font-weight:600; color:var(--text-muted);">Cliente</th>
-                                <th style="padding:0.875rem 1rem; font-weight:600; color:var(--text-muted);">Teléfono / Email</th>
-                                <th style="padding:0.875rem 1rem; font-weight:600; color:var(--text-muted);">Progreso de Sellos</th>
-                                <th style="padding:0.875rem 1rem; font-weight:600; color:var(--text-muted); text-align:center;">Canjes</th>
-                                <th style="padding:0.875rem 1rem; font-weight:600; color:var(--text-muted); text-align:center;">Acciones</th>
-                            </tr>
+                            <tr><th>Socio</th><th>Contacto</th><th>Sellos</th><th class="td-center">Canjes</th><th class="td-actions-h"><span class="sr-only">Acciones</span></th></tr>
                         </thead>
                         <tbody id="loyalty-customers-body">
-                            <tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--text-muted);">Cargando clientes...</td></tr>
+                            <tr><td colspan="5" class="table-empty">Cargando socios…</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -1602,47 +536,47 @@
         </section>
     </main>
 
+    <!-- ===== Panel de pedido ===== -->
     <div id="order-panel-overlay" class="overlay hidden"></div>
-    <aside id="order-panel" class="order-panel hidden">
+    <aside id="order-panel" class="order-panel hidden" data-tab="menu" aria-labelledby="order-panel-title">
         <div class="order-panel-header">
-            <div>
-                <h2 class="order-panel-title" id="order-panel-title">Mesa</h2><span class="order-panel-status"
-                    id="order-panel-status">Libre</span>
+            <button class="btn-icon-round" id="btn-ok-order" aria-label="Volver a mesas"><svg width="22" height="22"><use href="#i-back"/></svg></button>
+            <div class="order-panel-heading">
+                <h2 class="order-panel-title" id="order-panel-title">Mesa</h2>
+                <span class="order-panel-status" id="order-panel-status">Libre</span>
             </div>
-            <button class="btn btn-outline" id="btn-ok-order" style="padding: 0.25rem 0.75rem;">Volver</button>
         </div>
-        <div class="order-add-section">
-            <div class="search-wrapper">
-                <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                    stroke-width="2">
-                    <circle cx="11" cy="11" r="8" />
-                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                </svg>
-                <input type="text" id="order-search" class="input-field search-input" placeholder="Buscar producto...">
+        <div class="order-tabs segmented" role="tablist">
+            <button role="tab" class="order-tab active" data-order-tab="menu" id="order-tab-menu">Agregar</button>
+            <button role="tab" class="order-tab" data-order-tab="order" id="order-tab-order">Pedido <span class="tab-count" id="order-items-count"></span></button>
+        </div>
+        <div class="order-body">
+            <div class="order-add-section">
+                <div class="search-wrapper">
+                    <svg class="search-icon" width="18" height="18" aria-hidden="true"><use href="#i-search"/></svg>
+                    <input type="search" id="order-search" class="input-field search-input" placeholder="Buscar en toda la carta…" aria-label="Buscar en toda la carta">
+                </div>
+                <div class="order-menu-label" id="order-menu-label">Más vendidos</div>
+                <div class="order-menu-items" id="order-menu-items"></div>
             </div>
-            <div class="order-categories" id="order-categories"></div>
-            <div class="order-menu-items" id="order-menu-items"></div>
-        </div>
-        <div class="order-items-section">
-            <h3 class="order-items-heading">Pedido actual</h3>
-            <div class="order-items-list" id="order-items-list"></div>
+            <div class="order-items-section">
+                <h3 class="order-items-heading">Pedido actual</h3>
+                <div class="order-items-list" id="order-items-list"></div>
+            </div>
         </div>
         <div class="order-footer">
-            <div id="order-subtotal-row" style="display:none; justify-content:space-between; align-items:center; font-size:0.95rem; color:var(--text-muted); margin-bottom:0.25rem;">
-                <span>Subtotal</span><span id="order-subtotal">$0</span>
-            </div>
-            <div id="order-discount-row" style="display:none; justify-content:space-between; align-items:center; font-size:0.95rem; color:#dc2626; margin-bottom:0.25rem;">
-                <span>Descuento (<span id="order-discount-pct">0</span>%)</span><span id="order-discount-amount">-$0</span>
-            </div>
-            <div id="order-tip-row" style="display:none; justify-content:space-between; align-items:center; font-size:0.95rem; color:var(--primary); margin-bottom:0.25rem;">
-                <span>Propina (10%)</span><span id="order-tip-amount">$0</span>
-            </div>
-            <div class="order-total-row"><span>Total</span><span class="order-total-amount"
-                    id="order-total">$0.00</span></div>
-            <div class="payment-selector">
-                <div style="display:flex; align-items:center; gap:.5rem; margin-bottom:.75rem; font-weight:500;">
-                    <label for="order-discount-select" style="white-space:nowrap; font-size:0.875rem;">Descuento:</label>
-                    <select id="order-discount-select" class="input-field" style="flex:1; padding:0.35rem 0.5rem; font-size:0.875rem;">
+            <div class="order-options">
+                <label class="mini-field">
+                    <span>Pago</span>
+                    <select id="order-payment-method" class="input-field">
+                        <option value="Efectivo">Efectivo</option>
+                        <option value="Débito">Débito</option>
+                        <option value="Crédito">Crédito</option>
+                    </select>
+                </label>
+                <label class="mini-field">
+                    <span>Descuento</span>
+                    <select id="order-discount-select" class="input-field">
                         <option value="0">Sin descuento</option>
                         <option value="5">5%</option>
                         <option value="10">10%</option>
@@ -1652,75 +586,79 @@
                         <option value="30">30%</option>
                         <option value="50">50%</option>
                     </select>
-                </div>
-                <label
-                    style="display:flex; align-items:center; gap:.5rem; margin-bottom:.75rem; font-weight:500; cursor:pointer;">
-                    <input type="checkbox" id="order-tip-checkbox"> Incluir propina sugerida (10%)
                 </label>
-                <select id="order-payment-method" class="input-field" style="margin-bottom:0.5rem;">
-                    <option value="Efectivo">Efectivo</option>
-                    <option value="Débito">Débito</option>
-                    <option value="Crédito">Crédito</option>
-                </select>
+                <label class="tip-toggle">
+                    <input type="checkbox" id="order-tip-checkbox" class="switch switch-sm">
+                    <span>Propina 10%</span>
+                </label>
             </div>
-            <div class="order-actions" style="display:flex; gap:0.5rem; flex-wrap:wrap;">
-                <button class="btn" style="flex:1; background:#f59e0b; color:#fff;" id="btn-send-kds">Comandar</button>
-                <button class="btn btn-outline" id="btn-print-receipt"
-                    style="flex:1; border-color:var(--primary); color:var(--primary);">Imprimir Boleta</button>
-                <button class="btn btn-primary" id="btn-charge-order" style="flex:1;">Pagado</button>
+            <div class="order-breakdown">
+                <div id="order-subtotal-row" class="breakdown-row" style="display:none;"><span>Subtotal</span><span id="order-subtotal">$0</span></div>
+                <div id="order-discount-row" class="breakdown-row is-discount" style="display:none;"><span>Descuento (<span id="order-discount-pct">0</span>%)</span><span id="order-discount-amount">-$0</span></div>
+                <div id="order-tip-row" class="breakdown-row" style="display:none;"><span>Propina (10%)</span><span id="order-tip-amount">$0</span></div>
+            </div>
+            <div class="order-total-row"><span>Total</span><span class="order-total-amount" id="order-total">$0</span></div>
+            <div class="order-actions">
+                <button class="btn btn-accent" id="btn-send-kds"><svg width="18" height="18" aria-hidden="true"><use href="#i-send"/></svg> Comandar</button>
+                <button class="btn btn-outline btn-icon-text" id="btn-print-receipt" aria-label="Imprimir boleta" title="Imprimir boleta"><svg width="18" height="18" aria-hidden="true"><use href="#i-printer"/></svg><span class="hide-sm">Boleta</span></button>
+                <button class="btn btn-primary" id="btn-charge-order"><svg width="18" height="18" aria-hidden="true"><use href="#i-cash"/></svg> Cobrar</button>
             </div>
         </div>
     </aside>
 
-    <div id="modal-table" class="modal hidden">
+    <!-- ===== Modales ===== -->
+    <div id="modal-table" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-table-title">
         <div class="modal-backdrop"></div>
         <div class="modal-content modal-sm">
-            <h3 class="modal-title" id="modal-table-title">Nueva Mesa</h3>
-            <div class="form-group"><label class="form-label" for="input-table-name">Nombre del Elemento</label><input
-                    type="text" id="input-table-name" class="input-field" placeholder="Ej: Mesa 1, Barra 2..."></div>
-            <div class="form-group"><label class="form-label" for="input-table-zone">Zona</label><select
-                    id="input-table-zone" class="input-field">
-                    <option value="Salón">Salón</option>
-                    <option value="Terraza">Terraza</option>
-                    <option value="Pendientes">Pendientes</option>
-                </select></div>
-            <div class="form-group"><label class="form-label" for="input-table-type">Tipo de Elemento</label><select
-                    id="input-table-type" class="input-field">
-                    <option value="table">Mesa (Cuadrada)</option>
-                    <option value="round">Mesa (Circular)</option>
-                    <option value="bar">Barra (Rectangular)</option>
-                    <option value="sofa">Sillón (Decorativo)</option>
-                </select></div>
+            <h3 class="modal-title" id="modal-table-title">Nueva mesa</h3>
+            <div class="form-group"><label class="form-label" for="input-table-name">Nombre</label>
+                <input type="text" id="input-table-name" class="input-field" placeholder="Ej: Mesa 1, Barra 2…"></div>
+            <div class="form-row">
+                <div class="form-group"><label class="form-label" for="input-table-zone">Zona</label>
+                    <select id="input-table-zone" class="input-field">
+                        <option value="Salón">Salón</option>
+                        <option value="Terraza">Terraza</option>
+                        <option value="Pendientes">Pendientes</option>
+                    </select></div>
+                <div class="form-group"><label class="form-label" for="input-table-type">Tipo</label>
+                    <select id="input-table-type" class="input-field">
+                        <option value="table">Mesa cuadrada</option>
+                        <option value="round">Mesa redonda</option>
+                        <option value="bar">Barra</option>
+                        <option value="sofa">Sillón (decorativo)</option>
+                    </select></div>
+            </div>
             <div class="form-row" id="input-table-wh-row">
-                <div class="form-group"><label class="form-label" for="input-table-w">Ancho (%)</label><input
-                        type="number" id="input-table-w" class="input-field" placeholder="10" min="4" max="50" step="1"></div>
-                <div class="form-group"><label class="form-label" for="input-table-h">Alto (%)</label><input
-                        type="number" id="input-table-h" class="input-field" placeholder="10" min="4" max="50" step="1"></div>
+                <div class="form-group"><label class="form-label" for="input-table-w">Ancho en plano (%)</label>
+                    <input type="number" id="input-table-w" class="input-field" placeholder="10" min="4" max="50" step="1"></div>
+                <div class="form-group"><label class="form-label" for="input-table-h">Alto en plano (%)</label>
+                    <input type="number" id="input-table-h" class="input-field" placeholder="10" min="4" max="50" step="1"></div>
             </div>
             <div class="form-group" id="input-table-radius-row" style="display:none;">
-                <label class="form-label" for="input-table-radius">Radio (%)</label>
+                <label class="form-label" for="input-table-radius">Radio en plano (%)</label>
                 <input type="number" id="input-table-radius" class="input-field" placeholder="10" min="4" max="30" step="1" value="10">
             </div>
-            <div class="form-group" id="input-table-tip-container"><label
-                    style="display:flex; align-items:center; gap:.5rem; font-weight:500; cursor:pointer;"><input
-                        type="checkbox" id="input-table-tip"> Incluir propina automática (10%)</label></div>
-            <div class="modal-actions"><button class="btn-ghost" id="btn-modal-table-cancel">Cancelar</button><button
-                    class="btn btn-primary" id="btn-modal-table-save">Guardar</button></div>
+            <div class="form-group" id="input-table-tip-container">
+                <label class="check-row"><input type="checkbox" id="input-table-tip"> <span>Incluir propina automática (10%)</span></label>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-ghost" id="btn-modal-table-cancel" data-cancel>Cancelar</button>
+                <button class="btn btn-primary" id="btn-modal-table-save">Guardar</button>
+            </div>
         </div>
     </div>
 
-    <div id="modal-product" class="modal hidden">
+    <div id="modal-product" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-product-title">
         <div class="modal-backdrop"></div>
         <div class="modal-content modal-md">
-            <h3 class="modal-title" id="modal-product-title">Nuevo Producto</h3>
-            <div class="form-group"><label class="form-label" for="input-product-name">Nombre</label><input type="text"
-                    id="input-product-name" class="input-field" placeholder="Ej: Cafe con leche"></div>
+            <h3 class="modal-title" id="modal-product-title">Nuevo producto</h3>
+            <div class="form-group"><label class="form-label" for="input-product-name">Nombre</label>
+                <input type="text" id="input-product-name" class="input-field" placeholder="Ej: Café con leche"></div>
             <div class="form-row">
-                <div class="form-group"><label class="form-label" for="input-product-price">Precio ($)</label><input
-                        type="number" id="input-product-price" class="input-field" placeholder="0.00" step="0.01"
-                        min="0"></div>
-                <div class="form-group"><label class="form-label" for="input-product-category">Categoria</label><select
-                        id="input-product-category" class="input-field">
+                <div class="form-group"><label class="form-label" for="input-product-price">Precio</label>
+                    <div class="input-prefix"><span>$</span><input type="number" id="input-product-price" class="input-field" placeholder="3500" step="1" min="0" inputmode="numeric"></div></div>
+                <div class="form-group"><label class="form-label" for="input-product-category">Categoría</label>
+                    <select id="input-product-category" class="input-field">
                         <option value="Cafetería">Cafetería</option>
                         <option value="Salado">Salado</option>
                         <option value="Dulce">Dulce</option>
@@ -1729,53 +667,112 @@
                         <option value="Té">Té</option>
                     </select></div>
             </div>
-            <div class="modal-actions"><button class="btn btn-ghost"
-                    id="btn-modal-product-cancel">Cancelar</button><button class="btn btn-primary"
-                    id="btn-modal-product-save">Guardar</button></div>
+            <div class="modal-actions">
+                <button class="btn btn-ghost" id="btn-modal-product-cancel" data-cancel>Cancelar</button>
+                <button class="btn btn-primary" id="btn-modal-product-save">Guardar</button>
+            </div>
         </div>
     </div>
 
-    <!-- Modal para Editar Ingrediente Base -->
-    <div id="modal-ingredient" class="modal hidden">
+    <div id="modal-ingredient" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-ingredient-title">
         <div class="modal-backdrop"></div>
         <div class="modal-content modal-sm">
-            <h3 class="modal-title" id="modal-ingredient-title">Editar Ingrediente</h3>
+            <h3 class="modal-title" id="modal-ingredient-title">Editar ingrediente</h3>
             <div class="form-group">
-                <label class="form-label" for="input-ingredient-name">Nombre del Ingrediente</label>
-                <input type="text" id="input-ingredient-name" class="input-field" placeholder="Ej: Café en grano, Leche...">
+                <label class="form-label" for="input-ingredient-name">Nombre</label>
+                <input type="text" id="input-ingredient-name" class="input-field">
             </div>
             <div class="form-row">
                 <div class="form-group">
-                    <label class="form-label" for="input-ingredient-unit">Unidad Base</label>
+                    <label class="form-label" for="input-ingredient-unit">Unidad base</label>
                     <select id="input-ingredient-unit" class="input-field">
                         <option value="g">Gramos (g)</option>
                         <option value="ml">Mililitros (ml)</option>
                         <option value="oz">Onzas (oz)</option>
-                        <option value="unidades">Entero/Unidad</option>
+                        <option value="unidades">Unidad</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label class="form-label" for="input-ingredient-cost">Costo x Unidad ($)</label>
-                    <input type="number" id="input-ingredient-cost" class="input-field" placeholder="0.05" min="0" step="any">
+                    <label class="form-label" for="input-ingredient-cost">Costo por unidad</label>
+                    <input type="number" id="input-ingredient-cost" class="input-field" min="0" step="any" inputmode="decimal">
                 </div>
             </div>
             <div class="modal-actions">
-                <button class="btn btn-ghost" id="btn-modal-ingredient-cancel">Cancelar</button>
+                <button class="btn btn-ghost" id="btn-modal-ingredient-cancel" data-cancel>Cancelar</button>
                 <button class="btn btn-primary" id="btn-modal-ingredient-save">Guardar</button>
             </div>
         </div>
     </div>
 
-    <div id="modal-confirm" class="modal hidden">
+    <div id="modal-customer" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-customer-title">
         <div class="modal-backdrop"></div>
         <div class="modal-content modal-sm">
-            <h3 class="modal-title">Confirmar</h3>
-            <p class="modal-message" id="modal-confirm-message">Seguro?</p>
-            <div class="modal-actions"><button class="btn btn-ghost" id="btn-confirm-cancel">Cancelar</button><button
-                    class="btn btn-danger" id="btn-confirm-ok">Eliminar</button></div>
+            <h3 class="modal-title" id="modal-customer-title">Nuevo socio</h3>
+            <div class="form-group">
+                <label class="form-label" for="input-customer-name">Nombre *</label>
+                <input type="text" id="input-customer-name" class="input-field" placeholder="Ej: María Pérez" autocomplete="off">
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="input-customer-phone">Teléfono *</label>
+                <input type="tel" id="input-customer-phone" class="input-field" placeholder="+56 9 1234 5678" autocomplete="off">
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="input-customer-email">Email (opcional)</label>
+                <input type="email" id="input-customer-email" class="input-field" placeholder="ejemplo@correo.com" autocomplete="off">
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="input-customer-stamps">Sellos acumulados</label>
+                <input type="number" id="input-customer-stamps" class="input-field" min="0" max="10" value="0" inputmode="numeric">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-ghost" id="btn-modal-customer-cancel" data-cancel>Cancelar</button>
+                <button class="btn btn-primary" id="btn-modal-customer-save">Guardar socio</button>
+            </div>
         </div>
     </div>
 
+    <div id="modal-qr-scanner" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-qr-title">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content modal-md">
+            <h3 class="modal-title" id="modal-qr-title">Buscar socio</h3>
+            <p class="help-text">Escanea el QR de la tarjeta o busca por ID, teléfono o nombre.</p>
+
+            <div id="qr-camera-section" class="qr-camera-section">
+                <div class="qr-camera-buttons">
+                    <button class="btn btn-outline btn-block" id="btn-start-camera"><svg width="18" height="18" aria-hidden="true"><use href="#i-camera"/></svg> Activar cámara</button>
+                    <button class="btn btn-outline btn-block" id="btn-stop-camera" style="display:none;"><svg width="18" height="18" aria-hidden="true"><use href="#i-stop"/></svg> Detener cámara</button>
+                </div>
+                <div id="qr-camera-reader" class="qr-camera-reader"></div>
+                <p id="qr-camera-status" class="help-text center" style="display:none;">Apunta la cámara al código QR del cliente…</p>
+            </div>
+
+            <div class="divider-text"><span>o busca manualmente</span></div>
+
+            <div class="search-wrapper">
+                <svg class="search-icon" width="18" height="18" aria-hidden="true"><use href="#i-search"/></svg>
+                <input type="search" id="input-qr-code" class="input-field search-input input-lg" placeholder="ID, teléfono o nombre…" aria-label="ID, teléfono o nombre">
+            </div>
+            <div id="qr-scan-result" class="qr-scan-result" style="display:none;"></div>
+            <div class="modal-actions">
+                <button class="btn btn-ghost" id="btn-modal-qr-cancel" data-cancel>Cerrar</button>
+                <button class="btn btn-primary" id="btn-modal-qr-search">Buscar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-confirm" class="modal hidden" role="alertdialog" aria-modal="true" aria-labelledby="modal-confirm-title" aria-describedby="modal-confirm-message">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content modal-sm">
+            <h3 class="modal-title" id="modal-confirm-title">¿Estás seguro?</h3>
+            <p class="modal-message" id="modal-confirm-message"></p>
+            <div class="modal-actions">
+                <button class="btn btn-ghost" id="btn-confirm-cancel" data-cancel>Cancelar</button>
+                <button class="btn btn-danger" id="btn-confirm-ok">Eliminar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== Plantillas de impresión (sin cambios de diseño) ===== -->
     <div id="print-ticket" class="print-area">
         <div class="ticket-header">
             <h2 class="ticket-brand">Buen Dia Cafe</h2>
@@ -1794,7 +791,7 @@
             <tbody id="ticket-items-body"></tbody>
         </table>
         <div class="ticket-divider">--------------------------------</div>
-        <div class="ticket-total"><span>TOTAL</span><span id="ticket-total-amount">$0.00</span></div>
+        <div class="ticket-total"><span>TOTAL</span><span id="ticket-total-amount">$0</span></div>
         <div class="ticket-divider">--------------------------------</div>
         <p class="ticket-footer">Gracias por su visita!</p>
     </div>
@@ -1819,146 +816,12 @@
         <p class="ticket-footer">A preparar!</p>
     </div>
 
-    <!-- Modal Nuevo / Editar Cliente -->
-    <div id="modal-customer" class="modal hidden">
-        <div class="modal-backdrop"></div>
-        <div class="modal-content modal-sm">
-            <h3 class="modal-title" id="modal-customer-title">Nuevo Socio de Fidelidad</h3>
-            <div class="form-group">
-                <label class="form-label" for="input-customer-name">Nombre del Cliente *</label>
-                <input type="text" id="input-customer-name" class="input-field" placeholder="Ej: María Pérez">
-            </div>
-            <div class="form-group">
-                <label class="form-label" for="input-customer-phone">Teléfono / Celular *</label>
-                <input type="tel" id="input-customer-phone" class="input-field" placeholder="Ej: +56 9 1234 5678">
-            </div>
-            <div class="form-group">
-                <label class="form-label" for="input-customer-email">Email (Opcional)</label>
-                <input type="email" id="input-customer-email" class="input-field" placeholder="ejemplo@correo.com">
-            </div>
-            <div class="form-group">
-                <label class="form-label" for="input-customer-stamps">Sellos Acumulados</label>
-                <input type="number" id="input-customer-stamps" class="input-field" min="0" max="10" value="0">
-            </div>
-            <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1.5rem;">
-                <button class="btn btn-outline" id="btn-modal-customer-cancel">Cancelar</button>
-                <button class="btn btn-primary" id="btn-modal-customer-save">Guardar Socio</button>
-            </div>
-        </div>
-    </div>
+    <div id="toast-host" class="toast-host" aria-live="polite"></div>
 
-    <!-- Modal Escáner QR / Búsqueda en Caja -->
-    <div id="modal-qr-scanner" class="modal hidden">
-        <div class="modal-backdrop"></div>
-        <div class="modal-content modal-md">
-            <h3 class="modal-title">Escanear QR o Buscar Cliente</h3>
-            <p style="font-size:0.875rem; color:var(--text-muted); margin-bottom:1rem;">
-                Ingresa el ID del socio, su teléfono, o activa la cámara para escanear el QR del cliente.
-            </p>
-
-            <!-- Sección cámara QR -->
-            <div id="qr-camera-section" style="margin-bottom:1rem;">
-                <div style="display:flex; gap:0.5rem; margin-bottom:0.75rem;">
-                    <button class="btn btn-outline" id="btn-start-camera" style="flex:1; gap:0.4rem;">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                            <circle cx="12" cy="13" r="4"/>
-                        </svg>
-                        Activar Cámara
-                    </button>
-                    <button class="btn btn-outline" id="btn-stop-camera" style="display:none; flex:1; gap:0.4rem;">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="3" y="3" width="18" height="18" rx="2"/>
-                        </svg>
-                        Detener Cámara
-                    </button>
-                </div>
-                <!-- El lector de cámara se renderiza aquí -->
-                <div id="qr-camera-reader" style="width:100%; border-radius:0.75rem; overflow:hidden; background:#000; min-height:0;"></div>
-                <p id="qr-camera-status" style="font-size:0.8rem; color:var(--text-muted); text-align:center; margin-top:0.4rem; display:none;">Apunta la cámara al código QR del cliente...</p>
-            </div>
-
-            <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.75rem;">
-                <div style="flex:1; height:1px; background:var(--border);"></div>
-                <span style="font-size:0.75rem; color:var(--text-muted); white-space:nowrap;">o busca manualmente</span>
-                <div style="flex:1; height:1px; background:var(--border);"></div>
-            </div>
-
-            <div class="form-group">
-                <input type="text" id="input-qr-code" class="input-field" placeholder="Escribe el ID, teléfono o nombre..." style="font-size:1.1rem; padding:0.75rem;">
-            </div>
-            <div id="qr-scan-result" style="margin-top:1rem; display:none;"></div>
-            <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1.5rem;">
-                <button class="btn btn-outline" id="btn-modal-qr-cancel">Cerrar</button>
-                <button class="btn btn-primary" id="btn-modal-qr-search">Buscar / Procesar</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Vista Especial Tarjeta de Fidelidad Digital del Cliente (Vista Móvil / PWA) -->
-    <div id="view-customer-card" class="customer-card-overlay hidden">
-        <div class="customer-card-container">
-            <button id="btn-close-customer-card" class="btn-card-close">&times;</button>
-
-            <!-- Cabecera de la Tarjeta -->
-            <div class="card-pass-header">
-                <div class="card-brand">
-                    <span class="card-brand-icon">☕</span>
-                    <div>
-                        <div class="card-brand-name">Buen Día Café</div>
-                        <div class="card-pass-badge">Club de Fidelidad</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Saludo al Cliente -->
-            <div class="card-customer-info">
-                <h2 id="card-customer-name">¡Hola, Socio!</h2>
-                <p id="card-customer-status" class="card-status-text">Llevas 0 de 10 sellos acumulados</p>
-            </div>
-
-            <!-- Grilla de 10 Sellos Digitales -->
-            <div class="card-stamps-grid" id="card-stamps-grid">
-                <!-- Se generan dinámicamente en JS -->
-            </div>
-
-            <!-- Banner de Recompensa -->
-            <div id="card-reward-banner" class="card-reward-banner" style="display:none;">
-                <span style="font-size:1.5rem;">🎉</span>
-                <div>
-                    <strong>¡RECOMPENSA LISTA!</strong>
-                    <p style="font-size:0.8rem; margin:0;">Muestra este código en caja para canjear tu café gratis.</p>
-                </div>
-            </div>
-
-            <!-- Código QR del Cliente -->
-            <div class="card-qr-box">
-                <div id="card-qr-code" style="display:flex; justify-content:center; align-items:center; min-height:160px; background:#fff; padding:10px; border-radius:12px;"></div>
-                <div class="card-qr-id" id="card-customer-id">ID: -------</div>
-                <p class="card-qr-hint">Muestra este código al mozo/cajero para sumar sellos</p>
-            </div>
-
-            <!-- Banner PWA para guardar en Pantalla de Inicio -->
-            <div class="pwa-install-box">
-                <div class="pwa-install-title">📱 Guardar en tu teléfono</div>
-                <p class="pwa-install-desc">
-                    <strong>En iPhone:</strong> Toca <span style="display:inline-block; transform:translateY(2px);">📤</span> en Safari y elige <em>"Agregar a Inicio"</em>.<br>
-                    <strong>En Android:</strong> Toca <span style="display:inline-block;">⋮</span> en Chrome y elige <em>"Instalar aplicación"</em>.
-                </p>
-            </div>
-        </div>
-    </div>
-
-    <!-- QRCode Generator Library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <!-- QR Camera Scanner Library -->
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-
-    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-database-compat.js"></script>
-    <!-- App Logic -->
-    <script src="app.js?v=11"></script>
+    <script src="app.js?v=14"></script>
 </body>
 
 </html>

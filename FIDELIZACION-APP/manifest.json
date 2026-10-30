@@ -1,0 +1,23 @@
+{
+  "name": "Buen Día Café - Club de Fidelidad",
+  "short_name": "Buen Día",
+  "description": "Tu tarjeta de fidelización digital de Buen Día Café. Acumula sellos, sube de nivel y canjea premios.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f59e0b",
+  "theme_color": "#f59e0b",
+  "categories": [
+    "lifestyle",
+    "food"
+  ],
+  "icons": [
+    {
+      "src": "./icon_yellow.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

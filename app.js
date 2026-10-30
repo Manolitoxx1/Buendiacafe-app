@@ -55,30 +55,106 @@ var STATE = {
     editingIngredientId: null,
     editingCustomerId: null,
     isSaving: false,
-    isConnected: false
+    isConnected: false,
+    menuKeys: [],
+    loaded: { tables: false, menu: false, history: false, customers: false }
 };
 
 var CURRENT_ROLE = localStorage.getItem('fudo_role') || null;
 var BARISTA_CATS = ['Cafetería', 'Bebidas', 'Cafetería fría', 'Té'];
 var activeZone = 'salon';
 
-function saveAllTables() {
-    var tablesObj = {};
-    STATE.tables.forEach(function (t) { tablesObj[t.id] = t; });
-    db.ref('tables').set(tablesObj).catch(function (e) { console.error(e); alert('Error al guardar mesas: ' + e.message); });
-}
-function saveTable(table) {
-    if (!table || !table.id) return;
-    db.ref('tables/' + table.id).set(table).catch(function (e) { console.error(e); alert('Error al guardar mesa: ' + e.message); });
+// Guarda una mesa. Si se pasan `fields`, solo escribe esos campos para no pisar
+// cambios hechos al mismo tiempo desde otro dispositivo en el resto de la mesa.
+function saveTable(table, fields) {
+    if (!table || !table.id) return Promise.resolve();
+    var ref = db.ref('tables/' + table.id);
+    var p;
+    if (fields && fields.length) {
+        var upd = {};
+        fields.forEach(function (f) { upd[f] = (table[f] === undefined) ? null : table[f]; });
+        p = ref.update(upd);
+    } else {
+        p = ref.set(table);
+    }
+    return p.catch(function (e) { console.error(e); toast('Error al guardar mesa: ' + e.message, 'error'); throw e; });
 }
 function deleteTable(tableId) {
-    db.ref('tables/' + tableId).remove().catch(function (e) { console.error(e); alert('Error al eliminar mesa: ' + e.message); });
+    db.ref('tables/' + tableId).remove().catch(function (e) { console.error(e); toast('Error al eliminar mesa: ' + e.message, 'error'); });
 }
 function saveMenu() {
-    db.ref('menu').set(STATE.menu || []).catch(function (e) { console.error(e); alert('Error al guardar menú: ' + e.message); });
+    db.ref('menu').set(STATE.menu || []).catch(function (e) { console.error(e); toast('Error al guardar menú: ' + e.message, 'error'); });
+}
+// Guarda un solo producto en su posición del arreglo `menu` sin reescribir el resto.
+function saveProduct(p) {
+    var idx = STATE.menu.indexOf(p);
+    var keys = STATE.menuKeys || [];
+    var key = idx >= 0 && idx < keys.length ? keys[idx] : null;
+    if (key === null && idx >= 0) {
+        // producto nuevo: siguiente índice numérico libre
+        var nums = keys.map(Number);
+        if (nums.some(isNaN)) { saveMenu(); return; }
+        key = String(nums.length ? Math.max.apply(null, nums) + 1 : 0);
+        keys.push(key);
+    }
+    if (key === null) { saveMenu(); return; }
+    db.ref('menu/' + key).set(p).catch(function (e) { console.error(e); toast('Error al guardar producto: ' + e.message, 'error'); });
 }
 function genId() { return Math.random().toString(36).substr(2, 9); }
-function fmt(n) { return '$' + Math.round(n); }
+// Pesos chilenos: enteros con separador de miles ($12.500)
+function fmt(n) {
+    var v = Math.round(Number(n) || 0);
+    return (v < 0 ? '-$' : '$') + Math.abs(v).toLocaleString('es-CL');
+}
+// Costos unitarios de ingredientes pueden ser fracciones de peso ($0,35 / g)
+function fmtCost(n) {
+    var v = Number(n) || 0;
+    if (Math.abs(v) >= 100 || v === Math.round(v)) return fmt(v);
+    return '$' + v.toLocaleString('es-CL', { maximumFractionDigits: 2 });
+}
+// Totales de un pedido, redondeados a pesos enteros
+function calcTotals(order, discountPct, withTip) {
+    var subtotal = Math.round(calcTotal(order));
+    var pct = discountPct || 0;
+    var discountAmt = Math.round(subtotal * pct / 100);
+    var afterDiscount = subtotal - discountAmt;
+    var tipAmt = withTip ? Math.round(afterDiscount * 0.1) : 0;
+    return { subtotal: subtotal, discountPct: pct, discountAmt: discountAmt, tipAmt: tipAmt, total: afterDiscount + tipAmt };
+}
+// Fecha local YYYY-MM-DD (o YYYY-MM con month=true); evita que ventas nocturnas caigan al día siguiente por UTC
+function localDayKey(date, month) {
+    var d = (date instanceof Date) ? date : new Date(date);
+    var y = d.getFullYear();
+    var m = ('0' + (d.getMonth() + 1)).slice(-2);
+    if (month) return y + '-' + m;
+    return y + '-' + m + '-' + ('0' + d.getDate()).slice(-2);
+}
+var TIP_LINE = 'Propina Sugerida (10%)';
+function isAdjustmentLine(it) {
+    return !it || !it.name || it.name === TIP_LINE || it.name.indexOf('Descuento (') === 0;
+}
+
+// =================== Toasts ===================
+function toast(msg, type) {
+    var host = document.getElementById('toast-host');
+    if (!host) {
+        host = document.createElement('div');
+        host.id = 'toast-host';
+        host.className = 'toast-host';
+        host.setAttribute('aria-live', 'polite');
+        document.body.appendChild(host);
+    }
+    var el = document.createElement('div');
+    el.className = 'toast toast-' + (type || 'info');
+    el.setAttribute('role', type === 'error' ? 'alert' : 'status');
+    el.textContent = msg;
+    host.appendChild(el);
+    requestAnimationFrame(function () { el.classList.add('show'); });
+    var ttl = type === 'error' ? 6000 : 3200;
+    var close = function () { el.classList.remove('show'); setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 250); };
+    el.addEventListener('click', close);
+    setTimeout(close, ttl);
+}
 
 function $(id) { return document.getElementById(id); }
 function qs(sel) { return document.querySelector(sel); }
@@ -105,7 +181,10 @@ function init() {
         $('role-selection-overlay').classList.add('hidden'); applyRole();
     });
     var btnCr1 = $('btn-change-role'); if (btnCr1) btnCr1.addEventListener('click', function () { $('role-selection-overlay').classList.remove('hidden'); });
-    var btnCr2 = $('btn-change-role-mesero'); if (btnCr2) btnCr2.addEventListener('click', function () { $('role-selection-overlay').classList.remove('hidden'); });
+    var btnCr2 = $('btn-change-role-mesero'); if (btnCr2) btnCr2.addEventListener('click', function () {
+        $('more-sheet').classList.add('hidden');
+        $('role-selection-overlay').classList.remove('hidden');
+    });
     var btnCr3 = $('btn-change-role-barista'); if (btnCr3) btnCr3.addEventListener('click', function () { $('role-selection-overlay').classList.remove('hidden'); });
 
     setInterval(function () { if (CURRENT_ROLE === 'barista') renderKDS(); }, 30000);
@@ -123,8 +202,35 @@ function init() {
                 renderBalance();
             } else if (viewName === 'loyalty') {
                 renderLoyalty();
+            } else if (viewName === 'kds') {
+                renderKDS();
             }
+            // Marcar el botón equivalente en la otra navegación (sidebar / hoja "Más")
+            qsa('.nav-btn[data-view="' + viewName + '"]').forEach(function (b) { b.classList.add('active'); });
+            var moreBtn = $('nav-more');
+            if (moreBtn) moreBtn.classList.toggle('active', !!qs('#more-sheet .nav-btn[data-view="' + viewName + '"]'));
+            setMoreSheet(false);
+            var main = $('view-' + viewName);
+            if (main) main.scrollTop = 0;
         });
+    });
+
+    // Hoja "Más" del celular
+    function setMoreSheet(open) {
+        var sheet = $('more-sheet');
+        var moreBtn = $('nav-more');
+        if (!sheet) return;
+        sheet.classList.toggle('hidden', !open);
+        if (moreBtn) moreBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+    var navMore = $('nav-more');
+    if (navMore) navMore.addEventListener('click', function () { setMoreSheet($('more-sheet').classList.contains('hidden')); });
+    qsa('[data-close-more]').forEach(function (el) { el.addEventListener('click', function () { setMoreSheet(false); }); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') setMoreSheet(false); });
+
+    // Pestañas del panel de pedido (en celular se ve una sección a la vez)
+    qsa('.order-tab').forEach(function (tab) {
+        tab.addEventListener('click', function () { setOrderTab(tab.getAttribute('data-order-tab')); });
     });
 
     // Loyalty Event Handlers
@@ -163,15 +269,30 @@ function init() {
             var stamps = parseInt($('input-customer-stamps').value) || 0;
 
             if (!name || !phone) {
-                alert('Por favor, ingresa al menos Nombre y Teléfono.');
+                toast('Ingresa al menos nombre y teléfono.', 'error');
                 return;
             }
 
             var custId = STATE.editingCustomerId || ('c_' + Math.random().toString(36).substr(2, 7));
+
+            // Evitar socios duplicados: comparar teléfonos normalizados (sin espacios ni prefijo)
+            var phoneNorm = normalizePhone(phone);
+            var dupCustomer = (STATE.customers || []).filter(function (x) {
+                return x.id !== custId && phoneNorm.length === 9 && normalizePhone(x.phone) === phoneNorm;
+            })[0];
+            if (dupCustomer) {
+                showConfirm('Ya existe un socio con este teléfono: ' + dupCustomer.name + ' (' + (dupCustomer.stamps || 0) + ' sellos). ¿Guardar de todas formas como socio separado?',
+                    doSave, { okText: 'Guardar igual', variant: 'primary' });
+            } else {
+                doSave();
+            }
+
+            function doSave() {
             var custData = {
                 id: custId,
                 name: name,
                 phone: phone,
+                phoneNormalized: phoneNorm,
                 email: email,
                 stamps: stamps,
                 updatedAt: new Date().toISOString()
@@ -185,10 +306,11 @@ function init() {
             db.ref('customers/' + custId).update(custData).then(function () {
                 $('modal-customer').classList.add('hidden');
                 STATE.editingCustomerId = null;
-                alert('Socio guardado con éxito.');
+                toast('Socio guardado.', 'success');
             }).catch(function (e) {
-                alert('Error al guardar socio: ' + e.message);
+                toast('Error al guardar socio: ' + e.message, 'error');
             });
+            }
         });
     }
 
@@ -218,9 +340,11 @@ function init() {
         var query = (inputQrCode.value || '').trim();
         if (!query) return;
 
+        var queryPhone = normalizePhone(query);
         var c = (STATE.customers || []).find(function (x) {
             return (x.id || '').toLowerCase() === query.toLowerCase() ||
                    (x.phone || '').toLowerCase() === query.toLowerCase() ||
+                   (queryPhone.length === 9 && normalizePhone(x.phone) === queryPhone) ||
                    (x.name || '').toLowerCase().indexOf(query.toLowerCase()) >= 0;
         });
 
@@ -230,43 +354,40 @@ function init() {
         if (c) {
             var stamps = c.stamps || 0;
             var isReady = stamps >= 10;
-            resBox.innerHTML = 
-                '<div style="background:var(--bg-body); border:1px solid var(--border); padding:1rem; border-radius:var(--radius-md); text-align:center;">' +
-                    '<h4 style="font-size:1.1rem; color:var(--primary);">' + escapeHtml(c.name) + '</h4>' +
-                    '<p style="font-size:0.875rem; color:var(--text-muted); margin-bottom:0.5rem;">Teléfono: ' + escapeHtml(c.phone) + ' | ID: ' + c.id + '</p>' +
-                    '<div style="font-size:1.2rem; font-weight:bold; margin-bottom:0.75rem;">' + stamps + ' / 10 Sellos</div>' +
-                    '<div style="display:flex; gap:0.5rem; justify-content:center;">' +
-                        '<button class="btn btn-success" id="btn-qr-add-stamp">+1 Sello</button>' +
-                        (isReady ? '<button class="btn btn-primary" id="btn-qr-redeem" style="background:#d97706; border-color:#d97706;">🎁 Canjear Café Gratis</button>' : '') +
-                        '<button class="btn btn-outline" id="btn-qr-view-card">📱 Ver Tarjeta</button>' +
+            var fav = c.favoriteCoffee;
+            var favText = '';
+            if (fav) {
+                favText = typeof fav === 'string' ? fav :
+                    [fav.drink, fav.milk, fav.size, fav.shot, fav.dessert, fav.notes].filter(Boolean).join(' · ');
+            }
+            resBox.innerHTML =
+                '<div class="qr-result-card">' +
+                    '<h4 class="qr-result-name">' + escapeHtml(c.name) + '</h4>' +
+                    '<p class="qr-result-meta">' + escapeHtml(c.phone) + ' · ID ' + escapeHtml(c.id) + '</p>' +
+                    (favText ? '<p class="qr-result-fav"><span>Su habitual:</span> ' + escapeHtml(favText) + '</p>' : '') +
+                    '<div class="qr-result-stamps">' + stampDotsHtml(stamps) + '<b>' + stamps + ' / 10</b></div>' +
+                    '<div class="qr-result-actions">' +
+                        '<button class="btn btn-primary" id="btn-qr-add-stamp">' + icon('plus') + ' 1 sello</button>' +
+                        (isReady ? '<button class="btn btn-accent" id="btn-qr-redeem">' + icon('gift') + ' Canjear premio</button>' : '') +
                     '</div>' +
                 '</div>';
 
             var addBtn = $('btn-qr-add-stamp');
             if (addBtn) {
                 addBtn.addEventListener('click', function () {
-                    addCustomerStamp(c.id, 1);
-                    processQrSearch();
+                    addBtn.disabled = true;
+                    addCustomerStamp(c.id, 1).then(processQrSearch, processQrSearch);
                 });
             }
 
             var redeemBtn = $('btn-qr-redeem');
             if (redeemBtn) {
                 redeemBtn.addEventListener('click', function () {
-                    redeemCustomerReward(c.id);
-                    processQrSearch();
-                });
-            }
-
-            var viewBtn = $('btn-qr-view-card');
-            if (viewBtn) {
-                viewBtn.addEventListener('click', function () {
-                    $('modal-qr-scanner').classList.add('hidden');
-                    showCustomerCard(c.id);
+                    redeemCustomerReward(c.id, processQrSearch);
                 });
             }
         } else {
-            resBox.innerHTML = '<div style="color:var(--danger); text-align:center; padding:0.5rem;">No se encontró ningún socio con esa identificación.</div>';
+            resBox.innerHTML = '<div class="inline-error">No se encontró ningún socio con esa identificación.</div>';
         }
     }
 
@@ -300,7 +421,7 @@ function init() {
     if (btnStartCamera) {
         btnStartCamera.addEventListener('click', function () {
             if (typeof Html5Qrcode === 'undefined') {
-                alert('La librería de escaneo no está cargada. Verifica tu conexión a internet.');
+                toast('La librería de escaneo no está cargada. Revisa tu conexión a internet.', 'error');
                 return;
             }
             btnStartCamera.style.display = 'none';
@@ -327,7 +448,7 @@ function init() {
                 _qrRunning = true;
             }).catch(function (err) {
                 stopQrCamera();
-                alert('No se pudo acceder a la cámara.\nAsegúrate de dar permiso de cámara al navegador.\n\nDetalle: ' + err);
+                toast('No se pudo acceder a la cámara. Da permiso de cámara al navegador. (' + err + ')', 'error');
             });
         });
     }
@@ -335,14 +456,6 @@ function init() {
     var btnStopCamera = $('btn-stop-camera');
     if (btnStopCamera) {
         btnStopCamera.addEventListener('click', stopQrCamera);
-    }
-
-    var btnCloseCard = $('btn-close-customer-card');
-
-    if (btnCloseCard) {
-        btnCloseCard.addEventListener('click', function () {
-            $('view-customer-card').classList.add('hidden');
-        });
     }
 
     // Zone Selection Tabs for Mesas
@@ -426,7 +539,7 @@ function init() {
                     STATE.tables.splice(dragIdx, 1);
                     var targetIdx = STATE.tables.findIndex(function (t) { return t.id === targetId; });
                     STATE.tables.splice(targetIdx, 0, table);
-                    saveAllTables();
+                    saveTable(table, ['zone']);
                     renderTables();
                     return;
                 }
@@ -438,7 +551,7 @@ function init() {
                 var dragIdx = STATE.tables.findIndex(function (t) { return t.id === tableId; });
                 STATE.tables.splice(dragIdx, 1);
                 STATE.tables.push(table);
-                saveAllTables();
+                saveTable(table, ['zone']);
                 renderTables();
             }
         });
@@ -480,12 +593,12 @@ function init() {
                 }).then(function () {
                     $('reg-ing-name').value = '';
                     $('reg-ing-cost').value = '';
-                    alert('Ingrediente registrado con éxito.');
+                    toast('Ingrediente registrado.', 'success');
                 }).catch(function (err) {
-                    alert('Error: ' + err.message);
+                    toast('Error: ' + err.message, 'error');
                 });
             } else {
-                alert('Por favor, ingresa un nombre y costo válido.');
+                toast('Ingresa un nombre y un costo válido.', 'error');
             }
         });
     }
@@ -520,12 +633,12 @@ function init() {
                 }).then(function () {
                     $('modal-ingredient').classList.add('hidden');
                     STATE.editingIngredientId = null;
-                    alert('Ingrediente actualizado.');
+                    toast('Ingrediente actualizado.', 'success');
                 }).catch(function (err) {
-                    alert('Error: ' + err.message);
+                    toast('Error: ' + err.message, 'error');
                 });
             } else {
-                alert('Ingresa datos válidos.');
+                toast('Ingresa datos válidos.', 'error');
             }
         });
     }
@@ -609,14 +722,14 @@ function init() {
                     });
                     p.preparationCost = totalCost;
 
-                    saveMenu();
+                    saveProduct(p);
                     showRecipeDetails(pid);
                     $('recipe-ing-qty').value = '';
                     $('recipe-ing-select').value = '';
                     $('recipe-ing-unit-display').value = '';
                 }
             } else {
-                alert('Por favor, selecciona un ingrediente y cantidad válida.');
+                toast('Selecciona un ingrediente y una cantidad válida.', 'error');
             }
         });
     }
@@ -670,7 +783,7 @@ function init() {
                     t.h = h;
                     if (type === 'round') t.radius = radius;
                     else delete t.radius;
-                    saveTable(t);
+                    saveTable(t, ['name', 'zone', 'tip', 'type', 'w', 'h', 'radius']);
                 }
             } else {
                 var rx = Math.round(10 + Math.random() * 30);
@@ -690,11 +803,13 @@ function init() {
                 };
                 if (type === 'round') newTable.radius = radius;
                 STATE.tables.push(newTable);
-                saveAllTables();
+                saveTable(newTable);
             }
             renderTables();
             $('modal-table').classList.add('hidden');
             STATE.editingTableId = null;
+        } else {
+            fieldError('input-table-name', 'Escribe un nombre para la mesa.');
         }
     });
 
@@ -704,7 +819,9 @@ function init() {
         $('modal-product-title').textContent = 'Nuevo Producto';
         $('input-product-name').value = '';
         $('input-product-price').value = '';
-        $('input-product-category').value = '';
+        var catSel = $('input-product-category');
+        catSel.value = (menuCatFilter !== 'Todos' && menuCatFilter) ? menuCatFilter : '';
+        if (!catSel.value && catSel.options.length) catSel.selectedIndex = 0;
         $('modal-product').classList.remove('hidden');
     });
     $('btn-modal-product-cancel').addEventListener('click', function () {
@@ -712,19 +829,19 @@ function init() {
     });
     $('btn-modal-product-save').addEventListener('click', function () {
         var name = $('input-product-name').value.trim();
-        var price = parseFloat($('input-product-price').value);
+        var price = Math.round(parseFloat($('input-product-price').value));
         var cat = $('input-product-category').value.trim() || 'General';
-        if (name && !isNaN(price) && price >= 0) {
-            if (STATE.editingProductId) {
-                var p = STATE.menu.find(function (x) { return x.id === STATE.editingProductId; });
-                if (p) { p.name = name; p.price = price; p.category = cat; }
-            } else {
-                STATE.menu.push({ id: genId(), name: name, price: price, category: cat });
-            }
-            saveMenu();
-            renderMenu();
-            $('modal-product').classList.add('hidden');
+        if (!name) { fieldError('input-product-name', 'Escribe el nombre del producto.'); return; }
+        if (isNaN(price) || price < 0) { fieldError('input-product-price', 'Ingresa un precio válido.'); return; }
+        if (STATE.editingProductId) {
+            var p = STATE.menu.find(function (x) { return x.id === STATE.editingProductId; });
+            if (p) { p.name = name; p.price = price; p.category = cat; saveProduct(p); }
+        } else {
+            STATE.menu.push({ id: genId(), name: name, price: price, category: cat });
+            saveProduct(STATE.menu[STATE.menu.length - 1]);
         }
+        renderMenu();
+        $('modal-product').classList.add('hidden');
     });
 
     // Order Panel
@@ -733,53 +850,72 @@ function init() {
     $('order-panel-overlay').addEventListener('click', closeOrder);
     $('order-tip-checkbox').addEventListener('change', function (e) {
         var t = getTable();
-        if (t) { t.tip = e.target.checked; saveTable(t); renderOrderItems(); }
+        if (t) { t.tip = e.target.checked; saveTable(t, ['tip']); renderOrderItems(); }
     });
 
     $('order-discount-select').addEventListener('change', function (e) {
         var t = getTable();
-        if (t) { t.discount = parseInt(e.target.value) || 0; saveTable(t); renderOrderItems(); }
+        if (t) { t.discount = parseInt(e.target.value) || 0; saveTable(t, ['discount']); renderOrderItems(); }
     });
 
     $('order-search').addEventListener('input', function () {
         renderOrderMenu();
     });
+    // Enter agrega el primer resultado de la búsqueda y limpia el buscador
+    $('order-search').addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter' || !e.target.value.trim()) return;
+        var first = qs('#order-menu-items .menu-item-row');
+        if (first) { first.click(); e.target.value = ''; renderOrderMenu(); }
+    });
+
+    // Arma el registro de venta de una mesa (montos en pesos enteros)
+    function buildSaleRecord(t) {
+        var tot = calcTotals(t.order, t.discount, t.tip);
+        var recItems = t.order.map(function (it) {
+            var p = STATE.menu.find(function (x) { return x.id === it.productId; });
+            return {
+                productId: it.productId,
+                name: p ? p.name : '?',
+                price: p ? p.price : 0,
+                qty: it.qty,
+                subtotal: (p ? p.price : 0) * it.qty,
+                category: p ? p.category : 'General'
+            };
+        });
+        if (tot.discountPct > 0) {
+            recItems.push({ name: 'Descuento (' + tot.discountPct + '%)', price: -tot.discountAmt, qty: 1, subtotal: -tot.discountAmt });
+        }
+        if (t.tip) {
+            recItems.push({ name: TIP_LINE, price: tot.tipAmt, qty: 1, subtotal: tot.tipAmt });
+        }
+        var preparationCost = 0;
+        t.order.forEach(function (it) {
+            var p = STATE.menu.find(function (x) { return x.id === it.productId; });
+            if (p) {
+                var costVal = 0;
+                if (typeof p.preparationCost === 'number') {
+                    costVal = p.preparationCost;
+                } else if (p.ingredients) {
+                    p.ingredients.forEach(function (ing) { costVal += (ing.cost || 0); });
+                }
+                preparationCost += costVal * it.qty;
+            }
+        });
+        return {
+            id: genId(), date: new Date().toISOString(),
+            tableId: t.id, tableName: t.name, total: tot.total,
+            paymentMethod: $('order-payment-method').value,
+            items: recItems,
+            preparationCost: Math.round(preparationCost),
+            tipAmount: tot.tipAmt,
+            discountPercent: tot.discountPct,
+            discountAmount: tot.discountAmt
+        };
+    }
 
     $('btn-print-receipt').addEventListener('click', function () {
         var t = getTable();
-        if (t && t.order.length > 0) {
-            var subtotal = calcTotal(t.order);
-            var discountPct = t.discount || 0;
-            var discountAmt = subtotal * (discountPct / 100);
-            var afterDiscount = subtotal - discountAmt;
-            var tipAmt = t.tip ? afterDiscount * 0.1 : 0;
-            var total = afterDiscount + tipAmt;
-            var payment = $('order-payment-method').value;
-            var recItems = t.order.map(function (it) {
-                var p = STATE.menu.find(function (x) { return x.id === it.productId; });
-                return {
-                    productId: it.productId,
-                    name: p ? p.name : '?',
-                    price: p ? p.price : 0,
-                    qty: it.qty,
-                    subtotal: (p ? p.price : 0) * it.qty,
-                    category: p ? p.category : 'General'
-                };
-            });
-            if (discountPct > 0) {
-                recItems.push({ name: 'Descuento (' + discountPct + '%)', price: -discountAmt, qty: 1, subtotal: -discountAmt });
-            }
-            if (t.tip) {
-                recItems.push({ name: 'Propina Sugerida (10%)', price: tipAmt, qty: 1, subtotal: tipAmt });
-            }
-            var rec = {
-                id: genId(), date: new Date().toISOString(),
-                tableId: t.id, tableName: t.name, total: total,
-                paymentMethod: payment,
-                items: recItems
-            };
-            printTicket(rec);
-        }
+        if (t && t.order.length > 0) printTicket(buildSaleRecord(t));
     });
 
     $('btn-charge-order').addEventListener('click', function () {
@@ -788,64 +924,26 @@ function init() {
         if (t && t.order.length > 0) {
             STATE.isSaving = true;
             var btnCharge = $('btn-charge-order');
+            var btnLabel = btnCharge ? btnCharge.innerHTML : '';
             if (btnCharge) { btnCharge.disabled = true; btnCharge.textContent = 'Procesando...'; }
-            var subtotal = calcTotal(t.order);
-            var discountPct = t.discount || 0;
-            var discountAmt = subtotal * (discountPct / 100);
-            var afterDiscount = subtotal - discountAmt;
-            var tipAmt = t.tip ? afterDiscount * 0.1 : 0;
-            var total = afterDiscount + tipAmt;
-            var payment = $('order-payment-method').value;
-            var recItems = t.order.map(function (it) {
-                var p = STATE.menu.find(function (x) { return x.id === it.productId; });
-                return {
-                    productId: it.productId,
-                    name: p ? p.name : '?',
-                    price: p ? p.price : 0,
-                    qty: it.qty,
-                    subtotal: (p ? p.price : 0) * it.qty,
-                    category: p ? p.category : 'General'
-                };
-            });
-            if (discountPct > 0) {
-                recItems.push({ name: 'Descuento (' + discountPct + '%)', price: -discountAmt, qty: 1, subtotal: -discountAmt });
-            }
-            if (t.tip) {
-                recItems.push({ name: 'Propina Sugerida (10%)', price: tipAmt, qty: 1, subtotal: tipAmt });
-            }
-            var preparationCost = 0;
-            t.order.forEach(function (it) {
-                var p = STATE.menu.find(function (x) { return x.id === it.productId; });
-                if (p) {
-                    var costVal = 0;
-                    if (typeof p.preparationCost === 'number') {
-                        costVal = p.preparationCost;
-                    } else if (p.ingredients) {
-                        p.ingredients.forEach(function (ing) { costVal += (ing.cost || 0); });
-                    }
-                    preparationCost += costVal * it.qty;
-                }
-            });
-
-            var rec = {
-                id: genId(), date: new Date().toISOString(),
-                tableId: t.id, tableName: t.name, total: total,
-                paymentMethod: payment,
-                items: recItems,
-                preparationCost: preparationCost,
-                tipAmount: tipAmt,
-                discountPercent: discountPct,
-                discountAmount: discountAmt
-            };
-            db.ref('history').push(rec).catch(function (e) { console.error(e); alert('Error al guardar cobro: ' + e.message); });
-            t.order = []; t.tickets = []; t.status = 'free'; t.discount = 0;
-            saveTable(t);
-            renderTables(); renderHistory(); updateDaily();
-            closeOrder();
-            setTimeout(function () {
+            var rec = buildSaleRecord(t);
+            var done = function () {
                 STATE.isSaving = false;
-                if (btnCharge) { btnCharge.disabled = false; btnCharge.textContent = 'Pagado'; }
-            }, 2000);
+                if (btnCharge) { btnCharge.disabled = false; btnCharge.innerHTML = btnLabel; }
+            };
+            // Primero se guarda la venta; la mesa se libera solo si eso funcionó
+            db.ref('history').push(rec).then(function () {
+                t.order = []; t.tickets = []; t.status = 'free'; t.discount = 0;
+                saveTable(t, ['order', 'tickets', 'status', 'discount']);
+                renderTables(); updateDaily();
+                closeOrder();
+                toast('Cobro registrado: ' + fmt(rec.total), 'success');
+                done();
+            }).catch(function (e) {
+                console.error(e);
+                toast('No se pudo guardar el cobro: ' + e.message + '. La mesa sigue abierta.', 'error');
+                done();
+            });
         }
     });
 
@@ -876,24 +974,64 @@ function init() {
             });
             if (ticketItems.length > 0) {
                 t.tickets.push({ id: genId(), timestamp: now, items: ticketItems, status: 'pending', printed: false });
-                saveTable(t);
+                saveTable(t, ['tickets']);
                 sentAny = true;
                 if (CURRENT_ROLE !== 'barista') renderTables();
             }
-            closeOrder();
-            setTimeout(function () { STATE.isSaving = false; btnSendKds.disabled = false; }, 2000);
+            setTimeout(function () { STATE.isSaving = false; btnSendKds.disabled = false; }, 1200);
             if (sentAny) {
-                if (PrinterManager.isServer) alert('Comanda enviada a cocina e impresión encolada.');
-                else alert('Comanda enviada. La Caja principal la imprimirá.');
+                closeOrder();
+                if (PrinterManager.isServer) toast('Comanda enviada a preparación e impresión encolada.', 'success');
+                else toast('Comanda enviada. La caja principal la imprimirá.', 'success');
             } else {
-                alert('No hay productos nuevos para enviar.');
+                toast('No hay productos nuevos para enviar.', 'info');
             }
         });
     }
 
     // Confirm modal
     $('btn-confirm-cancel').addEventListener('click', function () { $('modal-confirm').classList.add('hidden'); confirmCb = null; });
-    $('btn-confirm-ok').addEventListener('click', function () { $('modal-confirm').classList.add('hidden'); if (confirmCb) confirmCb(); });
+    $('btn-confirm-ok').addEventListener('click', function () {
+        $('modal-confirm').classList.add('hidden');
+        var cb = confirmCb; confirmCb = null;
+        if (cb) cb();
+    });
+
+    // Modales: cerrar con Escape o tocando el fondo (equivale a "Cancelar")
+    function modalCancel(modal) {
+        var cancel = modal.querySelector('[data-cancel]');
+        if (cancel) cancel.click(); else modal.classList.add('hidden');
+    }
+    var MODAL_SEL = '.modal:not(#role-selection-overlay)';
+    qsa(MODAL_SEL).forEach(function (m) {
+        m.addEventListener('click', function (e) {
+            if (e.target === m || e.target.classList.contains('modal-backdrop')) modalCancel(m);
+        });
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        var open = qsa(MODAL_SEL + ':not(.hidden)');
+        if (open.length) { modalCancel(open[open.length - 1]); return; }
+        if (STATE.currentTableId) closeOrder();
+    });
+    // Foco al primer campo al abrir un modal
+    if (window.MutationObserver) {
+        var mo = new MutationObserver(function (muts) {
+            muts.forEach(function (mu) {
+                var m = mu.target;
+                if (!m.classList.contains('hidden') && mu.oldValue && mu.oldValue.indexOf('hidden') >= 0) {
+                    m.querySelectorAll('.has-error').forEach(clearFieldError);
+                    var f = m.querySelector('input:not([type=hidden]):not([readonly]), select, textarea, button');
+                    if (f) setTimeout(function () { try { f.focus({ preventScroll: true }); } catch (err) { } }, 60);
+                }
+            });
+        });
+        qsa(MODAL_SEL).forEach(function (m) { mo.observe(m, { attributes: true, attributeFilter: ['class'], attributeOldValue: true }); });
+    }
+    // Limpiar error de campo al escribir
+    document.addEventListener('input', function (e) {
+        if (e.target.classList && e.target.classList.contains('has-error')) clearFieldError(e.target);
+    });
 
     // History filter
     $('history-date-filter').addEventListener('change', function () { $('history-month-filter').value = ''; renderHistory(); });
@@ -957,11 +1095,11 @@ function init() {
     // Firebase connection status
     db.ref('.info/connected').on('value', function (snap) {
         STATE.isConnected = snap.val() === true;
-        var indicator = $('connection-status');
-        if (indicator) {
-            indicator.textContent = STATE.isConnected ? '● En línea' : '● Sin conexión';
-            indicator.style.color = STATE.isConnected ? 'var(--success)' : 'var(--danger)';
-        }
+        qsa('.connection-status').forEach(function (indicator) {
+            indicator.textContent = STATE.isConnected ? 'En línea' : 'Sin conexión';
+            indicator.classList.toggle('is-offline', !STATE.isConnected);
+        });
+        document.body.classList.toggle('is-offline', !STATE.isConnected);
     });
 
     // Firebase Listeners
@@ -979,23 +1117,24 @@ function init() {
             });
             return t;
         });
+        STATE.loaded.tables = true;
         if (CURRENT_ROLE === 'barista') renderKDS();
         else renderTables();
 
-        // Print Server Logic
+        // Print Server Logic: marca solo el campo `printed` de cada comanda
         if (PrinterManager.isServer) {
             STATE.tables.forEach(function (t) {
-                var tableChanged = false;
-                if (t.tickets) {
-                    t.tickets.forEach(function (tk) {
-                        if (tk.status === 'pending' && tk.printed === false) {
-                            PrinterManager.enqueueJob(t.name, tk.items, t.id, tk.id);
-                            tk.printed = true;
-                            tableChanged = true;
-                        }
-                    });
+                var upd = {};
+                t.tickets.forEach(function (tk, i) {
+                    if (tk.status === 'pending' && tk.printed === false) {
+                        PrinterManager.enqueueJob(t.name, tk.items, t.id, tk.id);
+                        tk.printed = true;
+                        upd['tickets/' + i + '/printed'] = true;
+                    }
+                });
+                if (Object.keys(upd).length) {
+                    db.ref('tables/' + t.id).update(upd).catch(function (e) { console.error(e); });
                 }
-                if (tableChanged) saveTable(t);
             });
         }
         if (STATE.currentTableId) {
@@ -1011,18 +1150,23 @@ function init() {
             }
         }
     }, function (error) {
-        alert('Error de conexión a Mesas: ' + error.message);
+        toast('Error de conexión a Mesas: ' + error.message, 'error');
     });
 
     db.ref('menu').on('value', function (snapshot) {
-        STATE.menu = Object.values(snapshot.val() || {});
+        var rawMenu = snapshot.val() || {};
+        STATE.menuKeys = Object.keys(rawMenu);
+        STATE.menu = STATE.menuKeys.map(function (k) { return rawMenu[k]; });
+        STATE.loaded.menu = true;
         renderMenu();
+        // Los totales de las mesas dependen de los precios: redibujar al cargar el menú
+        if (CURRENT_ROLE === 'barista') renderKDS(); else renderTables();
         if (STATE.currentTableId) renderOrderMenu();
         if ($('view-balance') && $('view-balance').classList.contains('active')) {
             renderBalance();
         }
     }, function (error) {
-        alert('Error de conexión a Menú: ' + error.message);
+        toast('Error de conexión a Menú: ' + error.message, 'error');
     });
 
     db.ref('history').on('value', function (snapshot) {
@@ -1033,11 +1177,12 @@ function init() {
             if (h.items && !Array.isArray(h.items)) h.items = Object.values(h.items);
             return h;
         });
+        STATE.loaded.history = true;
         renderHistory();
         updateDaily();
         renderBestSellersChart();
     }, function (error) {
-        alert('Error de conexión a Historial: ' + error.message);
+        toast('Error de conexión a Historial: ' + error.message, 'error');
     });
 
     db.ref('ingredients_registry').on('value', function (snapshot) {
@@ -1058,7 +1203,7 @@ function init() {
             }
         }
     }, function (error) {
-        alert('Error de conexión a Registro de Ingredientes: ' + error.message);
+        toast('Error de conexión a Ingredientes: ' + error.message, 'error');
     });
 
     db.ref('customers').on('value', function (snapshot) {
@@ -1071,8 +1216,8 @@ function init() {
             }
             return { id: key, name: 'Socio', stamps: 0 };
         });
+        STATE.loaded.customers = true;
         renderLoyalty();
-        checkCustomerUrlParam();
     }, function (error) {
         console.error('Error de conexión a Clientes: ' + error.message);
     });
@@ -1086,19 +1231,63 @@ function calcTotal(order) {
         return s + (p ? p.price * it.qty : 0);
     }, 0);
 }
-function getCats() {
+// withBestSellers: solo el panel de pedido ofrece la pseudo-categoría "Más vendidos"
+function getCats(withBestSellers) {
     var s = {};
-    STATE.menu.forEach(function (p) { s[p.category] = true; });
-    return ['Todos', 'Más vendidos'].concat(Object.keys(s));
+    STATE.menu.forEach(function (p) { s[p.category || 'General'] = true; });
+    return (withBestSellers ? ['Todos', 'Más vendidos'] : ['Todos']).concat(Object.keys(s));
 }
-function showConfirm(msg, cb) {
+// opts: { title, okText, variant: 'danger' | 'primary' }
+function showConfirm(msg, cb, opts) {
+    opts = opts || {};
     $('modal-confirm-message').textContent = msg;
+    var title = $('modal-confirm-title');
+    if (title) title.textContent = opts.title || (opts.variant === 'primary' ? 'Confirmar' : '¿Estás seguro?');
+    var ok = $('btn-confirm-ok');
+    ok.textContent = opts.okText || 'Eliminar';
+    ok.className = 'btn ' + (opts.variant === 'primary' ? 'btn-primary' : 'btn-danger');
     confirmCb = cb;
     $('modal-confirm').classList.remove('hidden');
+}
+// Error de validación junto al campo
+function fieldError(id, msg) {
+    var el = $(id);
+    if (!el) { toast(msg, 'error'); return; }
+    clearFieldError(el);
+    el.classList.add('has-error');
+    el.setAttribute('aria-invalid', 'true');
+    var m = document.createElement('div');
+    m.className = 'field-error';
+    m.textContent = msg;
+    el.insertAdjacentElement('afterend', m);
+    el.focus();
+}
+function clearFieldError(el) {
+    el.classList.remove('has-error');
+    el.removeAttribute('aria-invalid');
+    var n = el.nextElementSibling;
+    if (n && n.classList.contains('field-error')) n.parentNode.removeChild(n);
+}
+// Ícono del sprite SVG definido en index.html
+function icon(name, size) {
+    var s = size || 18;
+    return '<svg class="icon" width="' + s + '" height="' + s + '" aria-hidden="true"><use href="#i-' + name + '"/></svg>';
+}
+function stampDotsHtml(stamps) {
+    var h = '<span class="stamp-dots" aria-hidden="true">';
+    for (var i = 1; i <= 10; i++) h += '<i class="' + (i <= stamps ? 'on' : '') + '"></i>';
+    return h + '</span>';
+}
+function timeAgo(ts) {
+    var mins = Math.floor((Date.now() - ts) / 60000);
+    if (mins < 1) return 'Ahora';
+    if (mins < 60) return mins + ' min';
+    return Math.floor(mins / 60) + ' h ' + (mins % 60) + ' min';
 }
 
 function applyRole() {
     var sidebar = $('sidebar');
+    document.body.classList.toggle('role-barista', CURRENT_ROLE === 'barista');
     if (CURRENT_ROLE === 'barista') {
         if (sidebar) sidebar.style.display = 'none';
         qsa('.view').forEach(function (v) { v.classList.remove('active'); });
@@ -1106,12 +1295,24 @@ function applyRole() {
         if (viewKds) viewKds.classList.add('active');
         renderKDS();
     } else {
-        if (sidebar) sidebar.style.display = 'flex';
+        if (sidebar) sidebar.style.display = '';
+        qsa('.nav-btn').forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-view') === 'tables'); });
         qsa('.view').forEach(function (v) { v.classList.remove('active'); });
         var viewTables = $('view-tables');
         if (viewTables) viewTables.classList.add('active');
         renderTables();
     }
+}
+
+function emptyState(iconName, title, hint, centered) {
+    return '<div class="empty-state' + (centered ? ' empty-state-centered' : '') + '">' +
+        '<span class="empty-state-icon">' + icon(iconName, 28) + '</span>' +
+        '<strong>' + title + '</strong>' + (hint ? '<span>' + hint + '</span>' : '') + '</div>';
+}
+function skeletonCards(n) {
+    var h = '';
+    for (var i = 0; i < n; i++) h += '<div class="skeleton skeleton-card" aria-hidden="true"></div>';
+    return h;
 }
 
 // =================== Tables ===================
@@ -1135,7 +1336,7 @@ function renderTables() {
     var tabTerraza = $('tab-zone-terraza');
     if (tabSalon && tabTerraza) {
         if (isCaja) {
-            tabSalon.textContent = 'Salón (Mapa)';
+            tabSalon.textContent = 'Salón';
             // Hide Terraza tab in caja mode
             tabTerraza.style.display = 'none';
             if (activeZone === 'terraza') {
@@ -1167,25 +1368,30 @@ function renderTables() {
         else if (zoneKey === 'pendientes') pendientesCount++;
     });
 
+    if (!STATE.loaded.tables) {
+        [gridSalon, gridTerraza, gridPendientes].forEach(function (g) { if (g) g.innerHTML = skeletonCards(6); });
+        return;
+    }
+
     if (isCaja) {
         if (activeZone === 'salon' && salonCount === 0 && canvasSalon) {
-            canvasSalon.innerHTML = '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:var(--text-muted);width:100%;">Toca "Nueva Mesa" para empezar en el Salón</div>';
+            canvasSalon.innerHTML = emptyState('table', 'El salón está vacío', 'Toca "Nueva mesa" para dibujar el plano.', true);
         }
         if (activeZone === 'terraza' && terrazaCount === 0 && canvasTerraza) {
-            canvasTerraza.innerHTML = '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:var(--text-muted);width:100%;">Toca "Nueva Mesa" para empezar en la Terraza</div>';
+            canvasTerraza.innerHTML = emptyState('sun', 'La terraza está vacía', 'Toca "Nueva mesa" para agregar una.', true);
         }
         if (activeZone === 'pendientes' && pendientesCount === 0 && gridPendientes) {
-            gridPendientes.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text-muted);padding:3rem;">No hay elementos pendientes</div>';
+            gridPendientes.innerHTML = emptyState('clock', 'Sin pedidos pendientes', 'Los pedidos para llevar aparecerán aquí.');
         }
     } else {
         if (salonCount === 0 && gridSalon) {
-            gridSalon.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text-muted);padding:2rem;">No hay mesas en el Salón</div>';
+            gridSalon.innerHTML = emptyState('table', 'No hay mesas en el salón', 'Toca "Nueva mesa" para crear la primera.');
         }
         if (terrazaCount === 0 && gridTerraza) {
-            gridTerraza.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text-muted);padding:2rem;">No hay mesas en la Terraza</div>';
+            gridTerraza.innerHTML = emptyState('sun', 'No hay mesas en la terraza', 'Toca "Nueva mesa" para crear la primera.');
         }
         if (pendientesCount === 0 && gridPendientes) {
-            gridPendientes.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text-muted);padding:2rem;">No hay elementos pendientes</div>';
+            gridPendientes.innerHTML = emptyState('clock', 'Sin pedidos pendientes', 'Los pedidos para llevar aparecerán aquí.');
         }
     }
 
@@ -1196,11 +1402,10 @@ function renderTables() {
         
         if (isCaja && zoneKey !== activeZone) return;
 
-        var subtotal = calcTotal(table.order);
-        var discountPct = table.discount || 0;
-        var discountAmt = subtotal * (discountPct / 100);
-        var afterDiscount = subtotal - discountAmt;
-        var total = afterDiscount + (table.tip ? afterDiscount * 0.1 : 0);
+        var total = calcTotals(table.order, table.discount, table.tip).total;
+        var itemCount = table.order.reduce(function (s, it) { return s + (it.qty || 0); }, 0);
+        var pendingTk = (table.tickets || []).filter(function (tk) { return tk.status === 'pending'; });
+        var oldestPending = pendingTk.length ? Math.min.apply(null, pendingTk.map(function (tk) { return tk.timestamp; })) : 0;
 
         var bandejaLista = table.tickets && table.tickets.some(function (tk) {
             return tk.status === 'pending' && tk.items.every(function (it) { return it.done; });
@@ -1212,40 +1417,37 @@ function renderTables() {
         var type = table.type || 'table';
         d.setAttribute('data-type', type);
 
-        var iconSvg = '';
-        if (type === 'sofa') {
-            iconSvg = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10v8a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-8"/><path d="M2 14v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4"/><path d="M6 14h12"/></svg>';
-        } else if (type === 'bar') {
-            iconSvg = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M8 18v2"/><path d="M16 18v2"/></svg>';
-        } else if (type === 'round') {
-            iconSvg = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>';
-        } else {
-            if (zoneKey === 'terraza') {
-                iconSvg = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v2"/><path d="M12 20v2"/><path d="M5 5l1.5 1.5"/><path d="M17.5 17.5L19 19"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="M5 19l1.5-1.5"/><path d="M17.5 6.5L19 5"/><circle cx="12" cy="12" r="3"/></svg>';
-            } else {
-                iconSvg = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="4" rx="1"/><path d="M5 11v6"/><path d="M19 11v6"/></svg>';
-            }
+        var iconName = type === 'sofa' ? 'sofa' : type === 'bar' ? 'bar' : type === 'round' ? 'round' : (zoneKey === 'terraza' ? 'sun' : 'table');
+        var isFree = (table.status || 'free') === 'free';
+        var statusLabel = type === 'sofa' ? 'Decorativo' : bandejaLista ? 'Lista' : isFree ? 'Libre' : 'Ocupada';
+        var safeName = escapeHtml(table.name);
+        var safeId = escapeHtml(table.id);
+
+        var meta = '';
+        if (type !== 'sofa' && !isFree) {
+            meta = '<div class="table-meta">' +
+                '<span>' + itemCount + (itemCount === 1 ? ' ítem' : ' ítems') + '</span>' +
+                (oldestPending ? '<span class="table-wait">' + icon('clock', 12) + ' ' + timeAgo(oldestPending) + '</span>' : '') +
+                '</div>';
         }
 
-        var amountStr = '';
-        if (type === 'sofa') {
-            amountStr = 'Sillón Decorativo';
-        } else {
-            amountStr = table.status !== 'free' ? fmt(total) : 'Libre';
-        }
+        d.setAttribute('role', 'button');
+        d.setAttribute('tabindex', type === 'sofa' ? '-1' : '0');
+        d.setAttribute('aria-label', table.name + ', ' + statusLabel + (isFree ? '' : ', ' + fmt(total)));
 
-        d.innerHTML = '<div class="table-status-indicator"></div>' +
-            '<div class="drag-handle">' +
-            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
-            '<circle cx="9" cy="5" r="1.5" /><circle cx="9" cy="12" r="1.5" /><circle cx="9" cy="19" r="1.5" />' +
-            '<circle cx="15" cy="5" r="1.5" /><circle cx="15" cy="12" r="1.5" /><circle cx="15" cy="19" r="1.5" />' +
-            '</svg>' +
+        d.innerHTML =
+            '<div class="drag-handle" aria-hidden="true">' + icon('grip', 14) + '</div>' +
+            '<div class="table-card-top">' +
+                '<span class="table-icon">' + icon(iconName, 20) + '</span>' +
+                '<span class="table-status-chip">' + statusLabel + '</span>' +
             '</div>' +
-            '<div class="table-icon">' + iconSvg + '</div>' +
-            '<div class="table-info"><div class="table-name">' + table.name + '</div>' +
-            '<div class="table-amount">' + amountStr + '</div></div>' +
-            (bandejaLista ? '<div style="background:#10b981;color:#fff;font-size:0.7rem;padding:0.15rem 0.35rem;border-radius:4px;margin-top:0.25rem;text-align:center;">Bandeja Lista</div>' : '') +
-            '<div class="table-actions"><button class="btn-table-edit" data-id="' + table.id + '"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button class="btn-table-delete" data-id="' + table.id + '"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div>';
+            '<div class="table-info"><div class="table-name">' + safeName + '</div>' +
+            (type === 'sofa' ? '' : '<div class="table-amount">' + (isFree ? '&nbsp;' : fmt(total)) + '</div>') +
+            meta + '</div>' +
+            '<div class="table-actions">' +
+                '<button class="btn-table-edit" data-id="' + safeId + '" aria-label="Editar ' + safeName + '" title="Editar">' + icon('edit', 16) + '</button>' +
+                '<button class="btn-table-delete" data-id="' + safeId + '" aria-label="Eliminar ' + safeName + '" title="Eliminar">' + icon('trash', 16) + '</button>' +
+            '</div>';
 
         if (isCaja && (zoneKey === 'salon' || zoneKey === 'terraza')) {
             var w, h;
@@ -1319,24 +1521,26 @@ function renderTables() {
                     }
 
                     function onPointerUp(upEvent) {
-                        handle.releasePointerCapture(upEvent.pointerId);
+                        try { handle.releasePointerCapture(upEvent.pointerId); } catch (err) { }
                         document.removeEventListener('pointermove', onPointerMove);
                         document.removeEventListener('pointerup', onPointerUp);
+                        document.removeEventListener('pointercancel', onPointerUp);
                         d.style.zIndex = '';
-                        
+
                         // Restore parent scroll
                         if (viewEl) {
                             viewEl.style.overflowY = prevOverflow;
                         }
-                        
+
                         // Round to 1 decimal for storage
                         table.x = Math.round(table.x * 10) / 10;
                         table.y = Math.round(table.y * 10) / 10;
-                        saveTable(table);
+                        saveTable(table, ['x', 'y']);
                     }
 
                     document.addEventListener('pointermove', onPointerMove);
                     document.addEventListener('pointerup', onPointerUp);
+                    document.addEventListener('pointercancel', onPointerUp);
                 });
             }
         }
@@ -1393,6 +1597,12 @@ function renderTables() {
                 }
             }
         });
+        d.addEventListener('keydown', function (e) {
+            if ((e.key === 'Enter' || e.key === ' ') && e.target === d && type !== 'sofa') {
+                e.preventDefault();
+                openOrder(table.id);
+            }
+        });
 
         var edit = d.querySelector('.btn-table-edit');
         edit.addEventListener('click', function (e) {
@@ -1422,11 +1632,11 @@ function renderTables() {
         var del = d.querySelector('.btn-table-delete');
         del.addEventListener('click', function (e) {
             e.stopPropagation();
-            if (type !== 'sofa' && table.status !== 'free') { 
-                alert('Mesa ocupada, no se puede eliminar.'); 
-                return; 
+            if (type !== 'sofa' && table.status !== 'free') {
+                toast('La mesa está ocupada; cóbrala o vacíala antes de eliminarla.', 'error');
+                return;
             }
-            showConfirm('¿Eliminar este elemento?', function () {
+            showConfirm('¿Eliminar "' + table.name + '"?', function () {
                 STATE.tables = STATE.tables.filter(function (x) { return x.id !== table.id; });
                 deleteTable(table.id); 
                 renderTables();
@@ -1461,7 +1671,16 @@ document.addEventListener('pointerdown', function (e) {
 });
 
 // =================== Order Panel ===================
-var orderCatFilter = 'Todos';
+function setOrderTab(tab) {
+    var panel = $('order-panel');
+    if (!panel) return;
+    panel.setAttribute('data-tab', tab);
+    qsa('.order-tab').forEach(function (t) {
+        var on = t.getAttribute('data-order-tab') === tab;
+        t.classList.toggle('active', on);
+        t.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+}
 function openOrder(id) {
     STATE.currentTableId = id;
     var t = getTable();
@@ -1473,8 +1692,8 @@ function openOrder(id) {
     $('order-search').value = '';
     $('order-tip-checkbox').checked = !!t.tip;
     $('order-discount-select').value = (t.discount || 0).toString();
-    orderCatFilter = 'Todos';
-    renderOrderCats();
+    // Mesa con pedido: abrir en "Pedido"; mesa libre: en "Agregar"
+    setOrderTab(t.order.length ? 'order' : 'menu');
     renderOrderMenu();
     renderOrderItems();
     $('order-panel-overlay').classList.remove('hidden');
@@ -1485,38 +1704,63 @@ function closeOrder() {
     $('order-panel').classList.add('hidden');
     STATE.currentTableId = null;
 }
-function renderOrderCats() {
-    var c = $('order-categories');
-    c.innerHTML = '';
-    getCats().forEach(function (cat) {
-        var p = document.createElement('div');
-        p.className = 'category-pill' + (cat === orderCatFilter ? ' active' : '');
-        p.textContent = cat;
-        p.addEventListener('click', function () { orderCatFilter = cat; renderOrderCats(); renderOrderMenu(); });
-        c.appendChild(p);
+// Productos más vendidos según el historial (se recalcula solo si cambian ventas o menú)
+var BEST_SELLERS_LIMIT = 12;
+var _bestSellersCache = { key: '', list: [] };
+function getBestSellers() {
+    var key = STATE.history.length + '|' + STATE.menu.length;
+    if (_bestSellersCache.key === key) return _bestSellersCache.list;
+    var byId = {}, byName = {};
+    STATE.history.forEach(function (h) {
+        (h.items || []).forEach(function (i) {
+            if (isAdjustmentLine(i)) return;
+            if (i.productId) byId[i.productId] = (byId[i.productId] || 0) + (i.qty || 0);
+            else byName[i.name] = (byName[i.name] || 0) + (i.qty || 0);
+        });
     });
+    var ranked = STATE.menu.map(function (p) {
+        return { p: p, qty: (byId[p.id] || 0) + (byName[p.name] || 0) };
+    }).filter(function (x) { return x.qty > 0; })
+      .sort(function (a, b) { return b.qty - a.qty; })
+      .map(function (x) { return x.p; })
+      .slice(0, BEST_SELLERS_LIMIT);
+    // Sin historial todavía: mostrar los primeros productos de la carta
+    if (ranked.length === 0) ranked = STATE.menu.slice(0, BEST_SELLERS_LIMIT);
+    _bestSellersCache = { key: key, list: ranked };
+    return ranked;
+}
+function normalizeText(s) {
+    return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 }
 function renderOrderMenu() {
     var c = $('order-menu-items');
     c.innerHTML = '';
-    var q = ($('order-search').value || '').toLowerCase();
-    var items = [];
-    if (orderCatFilter === 'Más vendidos') {
-        var sales = {};
-        STATE.history.forEach(function (h) { h.items.forEach(function (i) { sales[i.name] = (sales[i.name] || 0) + i.qty; }); });
-        items = STATE.menu.filter(function (p) { return p.name.toLowerCase().indexOf(q) >= 0; }).map(function (p) {
-            return { p: p, qty: sales[p.name] || 0 };
-        }).sort(function (a, b) { return b.qty - a.qty; }).map(function (x) { return x.p; }).slice(0, 10);
-    } else {
+    var q = normalizeText(($('order-search').value || '').trim());
+    var label = $('order-menu-label');
+    var items;
+    if (q) {
+        // Buscando: toda la carta (sin acentos: "cafe" encuentra "Café")
+        // Por categoría solo con 4+ letras ("dulce"), para que "te" no traiga todo "Cafetería"
         items = STATE.menu.filter(function (p) {
-            return p.name.toLowerCase().indexOf(q) >= 0 && (orderCatFilter === 'Todos' || p.category === orderCatFilter);
+            return normalizeText(p.name).indexOf(q) >= 0 || (q.length >= 4 && normalizeText(p.category).indexOf(q) >= 0);
         });
+        if (label) label.textContent = items.length ? 'Resultados (' + items.length + ')' : 'Resultados';
+    } else {
+        items = getBestSellers();
+        if (label) label.textContent = 'Más vendidos';
     }
-    if (items.length === 0) { c.innerHTML = '<div style="color:var(--text-muted);padding:.5rem;">Sin resultados</div>'; return; }
+    if (items.length === 0) { c.innerHTML = '<div class="muted-note">Sin resultados. Prueba con otra palabra.</div>'; return; }
+    var t = getTable();
     items.forEach(function (p) {
-        var r = document.createElement('div');
-        r.className = 'menu-item-row';
-        r.innerHTML = '<span class="item-row-name">' + p.name + '</span><span class="item-row-price">' + fmt(p.price) + '</span>';
+        var inOrder = t ? t.order.find(function (x) { return x.productId === p.id; }) : null;
+        var r = document.createElement('button');
+        r.type = 'button';
+        r.className = 'menu-item-row' + (inOrder ? ' in-order' : '');
+        r.innerHTML = '<span class="item-row-name">' + escapeHtml(p.name) + '</span>' +
+            (inOrder ? '<span class="item-row-qty">' + inOrder.qty + '</span>' : '') +
+            '<span class="item-row-price">' + fmt(p.price) + '</span>' +
+            '<span class="item-row-add" aria-hidden="true">' + icon('plus', 16) + '</span>';
+        r.setAttribute('aria-label', 'Agregar ' + p.name + ', ' + fmt(p.price));
         r.addEventListener('click', function () { addToOrder(p.id); });
         c.appendChild(r);
     });
@@ -1527,7 +1771,7 @@ function addToOrder(pid) {
     var ex = t.order.find(function (x) { return x.productId === pid; });
     if (ex) { ex.qty++; } else { t.order.push({ productId: pid, qty: 1 }); }
     t.status = 'occupied';
-    saveTable(t); renderTables(); renderOrderItems();
+    saveTable(t, ['order', 'status']); renderTables(); renderOrderItems(); renderOrderMenu();
     var st = $('order-panel-status');
     st.className = 'order-panel-status status-badge-occupied';
     st.textContent = 'Ocupada';
@@ -1541,7 +1785,7 @@ function changeQty(pid, delta) {
         t.order[idx].qty += delta;
         if (t.order[idx].qty <= 0) t.order.splice(idx, 1);
         if (t.order.length === 0) t.status = 'free';
-        saveTable(t); renderTables(); renderOrderItems();
+        saveTable(t, ['order', 'status']); renderTables(); renderOrderItems(); renderOrderMenu();
         var st = $('order-panel-status');
         st.className = 'order-panel-status ' + (t.status === 'free' ? 'status-badge-free' : 'status-badge-occupied');
         st.textContent = t.status === 'free' ? 'Libre' : 'Ocupada';
@@ -1552,50 +1796,54 @@ function renderOrderItems() {
     if (!t) return;
     var c = $('order-items-list');
     c.innerHTML = '';
+    var countEl = $('order-items-count');
     if (t.order.length === 0) {
-        c.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:2rem;">Pedido vacio</div>';
+        c.innerHTML = emptyState('cup', 'Pedido vacío', 'Toca un producto del menú para agregarlo.');
         $('order-total').textContent = fmt(0);
         $('order-subtotal-row').style.display = 'none';
         $('order-discount-row').style.display = 'none';
         $('order-tip-row').style.display = 'none';
+        if (countEl) countEl.textContent = '';
         return;
     }
-    var subtotal = 0;
+    var n = 0;
     t.order.forEach(function (it) {
         var p = STATE.menu.find(function (x) { return x.id === it.productId; });
         if (!p) return;
+        n += it.qty;
         var sub = p.price * it.qty;
-        subtotal += sub;
         var el = document.createElement('div');
         el.className = 'order-item';
-        el.innerHTML = '<div class="order-item-info"><div class="order-item-name">' + p.name + '</div><div class="order-item-price">' + fmt(p.price) + ' c/u</div></div>' +
-            '<div class="order-item-controls"><button class="qty-btn btn-m">-</button><span class="item-qty">' + it.qty + '</span><button class="qty-btn btn-p">+</button><span class="item-total">' + fmt(sub) + '</span></div>';
+        el.innerHTML = '<div class="order-item-info"><div class="order-item-name">' + escapeHtml(p.name) + '</div><div class="order-item-price">' + fmt(p.price) + ' c/u</div></div>' +
+            '<div class="order-item-controls">' +
+                '<button class="qty-btn btn-m" aria-label="Quitar uno de ' + escapeHtml(p.name) + '">' + icon(it.qty === 1 ? 'trash' : 'minus', 16) + '</button>' +
+                '<span class="item-qty">' + it.qty + '</span>' +
+                '<button class="qty-btn btn-p" aria-label="Agregar uno de ' + escapeHtml(p.name) + '">' + icon('plus', 16) + '</button>' +
+            '</div>' +
+            '<span class="item-total">' + fmt(sub) + '</span>';
         el.querySelector('.btn-m').addEventListener('click', function () { changeQty(it.productId, -1); });
         el.querySelector('.btn-p').addEventListener('click', function () { changeQty(it.productId, 1); });
         c.appendChild(el);
     });
-    var discountPct = t.discount || 0;
-    var discountAmt = subtotal * (discountPct / 100);
-    var afterDiscount = subtotal - discountAmt;
-    var tipAmt = t.tip ? afterDiscount * 0.1 : 0;
-    var total = afterDiscount + tipAmt;
-    
+    if (countEl) countEl.textContent = n + (n === 1 ? ' ítem' : ' ítems');
+    var tot = calcTotals(t.order, t.discount, t.tip);
+
     // Show breakdown rows in footer
-    var hasDiscount = discountPct > 0;
+    var hasDiscount = tot.discountPct > 0;
     var hasTip = t.tip;
     var showBreakdown = hasDiscount || hasTip;
-    
+
     $('order-subtotal-row').style.display = showBreakdown ? 'flex' : 'none';
-    $('order-subtotal').textContent = fmt(subtotal);
-    
+    $('order-subtotal').textContent = fmt(tot.subtotal);
+
     $('order-discount-row').style.display = hasDiscount ? 'flex' : 'none';
-    $('order-discount-pct').textContent = discountPct;
-    $('order-discount-amount').textContent = '-' + fmt(discountAmt);
-    
+    $('order-discount-pct').textContent = tot.discountPct;
+    $('order-discount-amount').textContent = fmt(-tot.discountAmt);
+
     $('order-tip-row').style.display = hasTip ? 'flex' : 'none';
-    $('order-tip-amount').textContent = fmt(tipAmt);
-    
-    $('order-total').textContent = fmt(total);
+    $('order-tip-amount').textContent = fmt(tot.tipAmt);
+
+    $('order-total').textContent = fmt(tot.total);
 
     var readyTks = t.tickets ? t.tickets.filter(function (tk) {
         return tk.status === 'pending' && tk.items.every(function (it) { return it.done; });
@@ -1603,25 +1851,19 @@ function renderOrderItems() {
 
     if (readyTks.length > 0) {
         var btnDespachar = document.createElement('button');
-        btnDespachar.className = 'btn btn-primary';
-        btnDespachar.style.width = '100%';
-        btnDespachar.style.marginTop = '1.5rem';
-        btnDespachar.style.background = '#10b981';
-        btnDespachar.style.borderColor = '#10b981';
-        btnDespachar.style.padding = '1rem';
-        btnDespachar.style.fontSize = '1.1rem';
-        btnDespachar.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:0.5rem;vertical-align:middle;"><path d="M5 12l5 5L20 7"/></svg> Despachar Bandeja (' + readyTks.length + ')';
+        btnDespachar.className = 'btn btn-success btn-block btn-lg btn-dispatch';
+        btnDespachar.innerHTML = icon('check', 20) + ' Despachar bandeja (' + readyTks.length + ')';
         btnDespachar.addEventListener('click', function () {
             t.tickets.forEach(function (tk) {
                 if (tk.status === 'pending' && tk.items.every(function (it) { return it.done; })) {
                     tk.status = 'delivered';
                 }
             });
-            saveTable(t);
+            saveTable(t, ['tickets']);
             renderTables();
             renderOrderItems();
         });
-        c.appendChild(btnDespachar);
+        c.insertBefore(btnDespachar, c.firstChild);
     }
 }
 
@@ -1631,21 +1873,31 @@ function renderMenu() {
     renderBestSellersChart();
     var bar = $('menu-categories-bar');
     bar.innerHTML = '';
-    getCats().forEach(function (cat) {
+    var cats = getCats(false);
+    if (cats.indexOf(menuCatFilter) < 0) menuCatFilter = 'Todos';
+    cats.forEach(function (cat) {
         var b = document.createElement('button');
-        b.className = 'btn btn-outline';
-        if (cat === menuCatFilter) { b.style.background = 'var(--primary)'; b.style.color = '#fff'; b.style.borderColor = 'var(--primary)'; }
+        b.type = 'button';
+        b.className = 'category-pill' + (cat === menuCatFilter ? ' active' : '');
+        b.setAttribute('aria-pressed', cat === menuCatFilter ? 'true' : 'false');
         b.textContent = cat;
         b.addEventListener('click', function () { menuCatFilter = cat; renderMenu(); });
         bar.appendChild(b);
     });
     var list = $('menu-products-list');
     list.innerHTML = '';
-    STATE.menu.filter(function (p) { return menuCatFilter === 'Todos' || p.category === menuCatFilter; }).forEach(function (p) {
+    if (!STATE.loaded.menu) { list.innerHTML = skeletonCards(8); return; }
+    var prods = STATE.menu.filter(function (p) { return menuCatFilter === 'Todos' || p.category === menuCatFilter; });
+    if (prods.length === 0) {
+        list.innerHTML = emptyState('cup', 'Aún no hay productos', 'Toca "Nuevo producto" para armar tu carta.');
+        return;
+    }
+    prods.forEach(function (p) {
         var c = document.createElement('div');
         c.className = 'product-card';
-        c.innerHTML = '<span class="product-category-tag">' + p.category + '</span><div class="product-name">' + p.name + '</div><div class="product-price">' + fmt(p.price) + '</div>' +
-            '<div class="product-actions"><button class="btn btn-outline btn-ep" style="flex:1;padding:.25rem;">Editar</button><button class="btn btn-danger btn-dp" style="padding:.25rem .5rem;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div>';
+        c.innerHTML = '<span class="product-category-tag">' + escapeHtml(p.category) + '</span><div class="product-name">' + escapeHtml(p.name) + '</div><div class="product-price">' + fmt(p.price) + '</div>' +
+            '<div class="product-actions"><button class="btn btn-outline btn-sm btn-ep">' + icon('edit', 14) + ' Editar</button>' +
+            '<button class="btn btn-ghost-danger btn-sm btn-icon btn-dp" aria-label="Eliminar ' + escapeHtml(p.name) + '" title="Eliminar">' + icon('trash', 16) + '</button></div>';
         c.querySelector('.btn-ep').addEventListener('click', function () {
             STATE.editingProductId = p.id;
             $('modal-product-title').textContent = 'Editar Producto';
@@ -1655,7 +1907,7 @@ function renderMenu() {
             $('modal-product').classList.remove('hidden');
         });
         c.querySelector('.btn-dp').addEventListener('click', function () {
-            showConfirm('Eliminar ' + p.name + '?', function () {
+            showConfirm('¿Eliminar "' + p.name + '" de la carta?', function () {
                 STATE.menu = STATE.menu.filter(function (x) { return x.id !== p.id; });
                 saveMenu(); renderMenu();
             });
@@ -1666,16 +1918,23 @@ function renderMenu() {
 
 // =================== History ===================
 function updateDaily() {
-    var today = new Date().toISOString().split('T')[0];
-    var total = STATE.history.filter(function (h) { return h.date.indexOf(today) === 0; }).reduce(function (s, h) { return s + h.total; }, 0);
-    $('daily-total').textContent = fmt(total);
+    var today = localDayKey(new Date());
+    var total = STATE.history.filter(function (h) { return h.date && localDayKey(h.date) === today; }).reduce(function (s, h) { return s + (h.total || 0); }, 0);
+    qsa('.daily-total').forEach(function (el) { el.textContent = fmt(total); });
+}
+// Propina de una venta (registros nuevos traen tipAmount; los antiguos, una línea)
+function saleTip(h) {
+    if (typeof h.tipAmount === 'number') return h.tipAmount;
+    var t = 0;
+    (h.items || []).forEach(function (it) { if (it.name === TIP_LINE) t += it.subtotal || 0; });
+    return t;
 }
 function renderHistory() {
     var fd = $('history-date-filter').value;
     var fm = $('history-month-filter').value;
     var list = STATE.history.slice().reverse();
-    if (fd) list = list.filter(function (h) { return h.date.indexOf(fd) === 0; });
-    if (fm) list = list.filter(function (h) { return h.date.indexOf(fm) === 0; });
+    if (fd) list = list.filter(function (h) { return h.date && localDayKey(h.date) === fd; });
+    if (fm) list = list.filter(function (h) { return h.date && localDayKey(h.date, true) === fm; });
     
     var tr = list.reduce(function (s, h) { return s + h.total; }, 0);
     var te = list.filter(function (h) { return h.paymentMethod === 'Efectivo'; }).reduce(function (s, h) { return s + h.total; }, 0);
@@ -1691,33 +1950,22 @@ function renderHistory() {
         var saleNet = h.total;
         var inferredPeopleInSale = 0;
         
+        saleNet -= saleTip(h);
         if (typeof h.preparationCost === 'number') {
-            totalRealUtility += (h.total - h.preparationCost);
+            // La propina es del personal: no cuenta como utilidad
+            totalRealUtility += (saleNet - h.preparationCost);
             countWithPrepCost++;
         }
 
-        if (h.items) {
-            h.items.forEach(function (it) {
-                if (it.name === 'Propina Sugerida (10%)') {
-                    saleNet -= it.subtotal;
-                } else {
-                    var isBeverage = false;
-                    if (it.category && BARISTA_CATS.indexOf(it.category) >= 0) {
-                        isBeverage = true;
-                    } else {
-                        var p = STATE.menu.find(function (x) { return x.id === it.productId; });
-                        if (p && BARISTA_CATS.indexOf(p.category) >= 0) {
-                            isBeverage = true;
-                        } else if (!p) {
-                            var nameLower = (it.name || '').toLowerCase();
-                            var keywords = ['cafe', 'té', 'te', 'bebida', 'jugo', 'soda', 'agua', 'latte', 'cappuccino', 'espresso', 'moka', 'limonada', 'licuado'];
-                            keywords.forEach(function (kw) { if (nameLower.indexOf(kw) >= 0) isBeverage = true; });
-                        }
-                    }
-                    if (isBeverage) inferredPeopleInSale += it.qty;
-                }
-            });
-        }
+        (h.items || []).forEach(function (it) {
+            if (isAdjustmentLine(it)) return;
+            var cat = it.category;
+            if (!cat) {
+                var p = STATE.menu.find(function (x) { return x.id === it.productId; });
+                if (p) cat = p.category;
+            }
+            if (cat && BARISTA_CATS.indexOf(cat) >= 0) inferredPeopleInSale += it.qty;
+        });
         if (inferredPeopleInSale === 0) inferredPeopleInSale = 1;
         totalNetRevenue += saleNet;
         totalInferredPeople += inferredPeopleInSale;
@@ -1754,66 +2002,49 @@ function renderHistory() {
             peakHour = hr;
         }
     });
-    var peakHourStr = peakHour !== null ? peakHour + ':00 - ' + (parseInt(peakHour) + 1) + ':00' : 'N/A';
+    var peakHourStr = peakHour !== null ? peakHour + ':00 – ' + (parseInt(peakHour) + 1) + ':00' : '-';
     
-    // Calculate total tips for the period
     var totalTips = 0;
-    list.forEach(function (h) {
-        if (typeof h.tipAmount === 'number') {
-            totalTips += h.tipAmount;
-        } else if (h.items) {
-            h.items.forEach(function (it) {
-                if (it.name === 'Propina Sugerida (10%)') {
-                    totalTips += it.subtotal;
-                }
-            });
-        }
-    });
+    list.forEach(function (h) { totalTips += saleTip(h); });
 
-    $('history-summary').innerHTML = '<div class="summary-card"><div class="summary-title">Total Recaudado</div><div class="summary-value">' + fmt(tr) + '</div></div>' +
-        '<div class="summary-card"><div class="summary-title">Utilidad Real</div><div class="summary-value" style="color:var(--success);">' + realUtilityStr + '</div></div>' +
-        '<div class="summary-card"><div class="summary-title">Total Neto Propinas</div><div class="summary-value" style="font-size:1.4rem; color:#f59e0b;">' + fmt(totalTips) + '</div></div>' +
-        '<div class="summary-card"><div class="summary-title">Tkt Prom. (Neto / Persona)</div><div class="summary-value" style="font-size:1.35rem;">' + fmt(ticketPromedioNeto) + ' / ' + fmt(ticketPromedioPersona) + '</div></div>' +
-        '<div class="summary-card"><div class="summary-title">Hora Pico de Ventas</div><div class="summary-value" style="font-size:1.15rem; margin-top:0.35rem;">' + peakHourStr + '</div></div>' +
-        '<div class="summary-card" style="grid-column:1/-1; display:flex; justify-content:space-between; flex-wrap:wrap; gap:1rem; padding:1.25rem;">' +
-        '<div><small style="color:var(--text-muted); text-transform:uppercase; font-size:0.75rem;">Métodos de Pago:</small>' +
-        ' <span style="margin-left:0.5rem;">Efectivo: <b>' + fmt(te) + '</b></span>' +
-        ' <span style="margin-left:0.75rem;">Débito: <b>' + fmt(td) + '</b></span>' +
-        ' <span style="margin-left:0.75rem;">Crédito: <b>' + fmt(tc) + '</b></span></div>' +
-        '<div><small style="color:var(--text-muted); text-transform:uppercase; font-size:0.75rem;">Ingresos por Zona:</small>' +
-        ' <span style="margin-left:0.5rem;">Salón: <b>' + fmt(zoneTotals['Salón'] || 0) + '</b></span>' +
-        ' <span style="margin-left:0.75rem;">Terraza: <b>' + fmt(zoneTotals['Terraza'] || 0) + '</b></span>' +
-        ' <span style="margin-left:0.75rem;">Otros/Pend: <b>' + fmt((zoneTotals['Pendientes'] || 0) + (zoneTotals['Otros'] || 0)) + '</b></span></div>' +
+    function card(title, value, cls, sub) {
+        return '<div class="summary-card' + (cls ? ' ' + cls : '') + '"><div class="summary-title">' + title + '</div>' +
+            '<div class="summary-value">' + value + '</div>' + (sub ? '<div class="summary-sub">' + sub + '</div>' : '') + '</div>';
+    }
+    $('history-summary').innerHTML =
+        card('Total recaudado', fmt(tr), 'summary-card-hero', list.length + (list.length === 1 ? ' venta' : ' ventas')) +
+        card('Utilidad real', realUtilityStr, 'is-positive', 'Sin propinas') +
+        card('Propinas', fmt(totalTips)) +
+        card('Ticket promedio', fmt(ticketPromedioNeto), 'span-md-2', fmt(ticketPromedioPersona) + ' por persona') +
+        card('Hora pico', peakHourStr, 'span-md-2') +
+        '<div class="summary-card summary-card-wide">' +
+            '<div class="summary-split"><span class="summary-title">Métodos de pago</span>' +
+                '<span>Efectivo <b>' + fmt(te) + '</b></span><span>Débito <b>' + fmt(td) + '</b></span><span>Crédito <b>' + fmt(tc) + '</b></span></div>' +
+            '<div class="summary-split"><span class="summary-title">Por zona</span>' +
+                '<span>Salón <b>' + fmt(zoneTotals['Salón'] || 0) + '</b></span><span>Terraza <b>' + fmt(zoneTotals['Terraza'] || 0) + '</b></span>' +
+                '<span>Otros <b>' + fmt((zoneTotals['Pendientes'] || 0) + (zoneTotals['Otros'] || 0)) + '</b></span></div>' +
         '</div>';
 
     var hl = $('history-list');
     hl.innerHTML = '';
-    if (list.length === 0) { hl.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text-muted);">Sin ventas</div>'; return; }
+    if (!STATE.loaded.history) { hl.innerHTML = '<div class="skeleton skeleton-row"></div><div class="skeleton skeleton-row"></div><div class="skeleton skeleton-row"></div>'; return; }
+    if (list.length === 0) { hl.innerHTML = emptyState('receipt', 'Sin ventas en este período', 'Cambia el filtro de fecha o registra un cobro.'); return; }
     list.forEach(function (r) {
         var d = new Date(r.date);
-        var ic = r.items.reduce(function (s, i) { return s + i.qty; }, 0);
+        var ic = (r.items || []).reduce(function (s, i) { return s + (isAdjustmentLine(i) ? 0 : i.qty); }, 0);
         var el = document.createElement('div');
         el.className = 'history-item';
-        
-        var utilityVal = (typeof r.preparationCost === 'number') ? fmt(r.total - r.preparationCost) : '-';
-        
-        // Determine tip for this transaction
-        var itemTip = 0;
-        if (typeof r.tipAmount === 'number') {
-            itemTip = r.tipAmount;
-        } else if (r.items) {
-            r.items.forEach(function (it) {
-                if (it.name === 'Propina Sugerida (10%)') itemTip += it.subtotal;
-            });
-        }
-        var tipStr = itemTip > 0 ? ' &bull; Propina: <b style="color:#f59e0b;">' + fmt(itemTip) + '</b>' : '';
-        
-        el.innerHTML = '<div class="history-item-info"><h4>' + r.tableName + '</h4>' +
-            '<div class="history-item-date">' + d.toLocaleDateString() + ' - ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + '</div>' +
-            '<div class="history-item-details">' + ic + ' items &bull; ' + (r.paymentMethod || 'Efectivo') + tipStr + ' &bull; Utilidad Real: <b>' + utilityVal + '</b></div></div>' +
-            '<div style="display:flex; align-items:center; gap:0.75rem;">' +
+
+        var itemTip = saleTip(r);
+        var utilityVal = (typeof r.preparationCost === 'number') ? fmt(r.total - itemTip - r.preparationCost) : '-';
+        var tipStr = itemTip > 0 ? '<span>Propina <b>' + fmt(itemTip) + '</b></span>' : '';
+
+        el.innerHTML = '<div class="history-item-info"><h4>' + escapeHtml(r.tableName) + '</h4>' +
+            '<div class="history-item-date">' + d.toLocaleDateString('es-CL') + ' · ' + d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }) + '</div>' +
+            '<div class="history-item-details"><span>' + ic + (ic === 1 ? ' ítem' : ' ítems') + '</span><span class="pay-chip">' + escapeHtml(r.paymentMethod || 'Efectivo') + '</span>' + tipStr + '<span>Utilidad <b>' + utilityVal + '</b></span></div></div>' +
+            '<div class="history-item-end">' +
             '<div class="history-item-total">' + fmt(r.total) + '</div>' +
-            (r.firebaseKey ? '<button class="btn-history-delete" title="Eliminar Venta"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>' : '') +
+            (r.firebaseKey ? '<button class="btn-history-delete" aria-label="Eliminar venta" title="Eliminar venta">' + icon('trash', 16) + '</button>' : '') +
             '</div>';
 
         var delBtn = el.querySelector('.btn-history-delete');
@@ -1821,8 +2052,10 @@ function renderHistory() {
             delBtn.addEventListener('click', function (e) {
                 e.stopPropagation();
                 showConfirm('¿Eliminar esta venta del historial? Se restará de los totales diarios, mensuales y anuales.', function () {
-                    db.ref('history/' + r.firebaseKey).remove().catch(function (error) {
-                        alert('Error al eliminar venta: ' + error.message);
+                    db.ref('history/' + r.firebaseKey).remove().then(function () {
+                        toast('Venta eliminada.', 'success');
+                    }).catch(function (error) {
+                        toast('Error al eliminar venta: ' + error.message, 'error');
                     });
                 });
             });
@@ -1879,11 +2112,11 @@ var PrinterManager = {
                 ]
             });
             await this.setupDevice(device, role);
-            alert('Impresora vinculada exitosamente a ' + role);
+            toast('Impresora vinculada a ' + role + '.', 'success');
             this.updateUI();
         } catch (e) {
             console.error(e);
-            alert('Error al vincular: ' + e.message);
+            toast('Error al vincular: ' + e.message, 'error');
         }
     },
 
@@ -2068,14 +2301,15 @@ function fallbackPrintTicket(rec) {
     tb.innerHTML = '';
     rec.items.forEach(function (it) {
         var tr = document.createElement('tr');
-        tr.innerHTML = '<td class="ticket-td-center">' + it.qty + '</td><td class="ticket-td-left">' + it.name + '</td><td class="ticket-td-right">' + fmt(it.subtotal) + '</td>';
+        tr.innerHTML = '<td class="ticket-td-center">' + it.qty + '</td><td class="ticket-td-left">' + escapeHtml(it.name) + '</td><td class="ticket-td-right">' + fmt(it.subtotal) + '</td>';
         tb.appendChild(tr);
     });
     $('ticket-total-amount').textContent = fmt(rec.total);
 
-    document.body.className = 'printing-ticket';
+    // classList (no className) para no borrar is-caja ni role-barista
+    document.body.classList.add('printing-ticket');
     window.print();
-    document.body.className = '';
+    document.body.classList.remove('printing-ticket');
 }
 
 function printComanda(tableName, items) {
@@ -2099,13 +2333,13 @@ function fallbackPrintComanda(tableName, items) {
     tb.innerHTML = '';
     items.forEach(function (it) {
         var tr = document.createElement('tr');
-        tr.innerHTML = '<td class="ticket-td-center" style="font-size:22px; font-weight:bold; padding:4px 0;">' + it.qty + '</td><td class="ticket-td-left" style="font-size:22px; font-weight:bold; padding:4px 0;">' + it.name + '</td>';
+        tr.innerHTML = '<td class="ticket-td-center" style="font-size:22px; font-weight:bold; padding:4px 0;">' + it.qty + '</td><td class="ticket-td-left" style="font-size:22px; font-weight:bold; padding:4px 0;">' + escapeHtml(it.name) + '</td>';
         tb.appendChild(tr);
     });
 
-    document.body.className = 'printing-comanda';
+    document.body.classList.add('printing-comanda');
     window.print();
-    document.body.className = '';
+    document.body.classList.remove('printing-comanda');
 }
 
 // Start
@@ -2134,8 +2368,12 @@ function renderKDS() {
         }
     });
 
+    var countEl = $('kds-count');
+    if (countEl) countEl.textContent = pendingTables.length ? pendingTables.length + (pendingTables.length === 1 ? ' mesa en espera' : ' mesas en espera') : '';
+
+    if (!STATE.loaded.tables) { grid.innerHTML = skeletonCards(3); return; }
     if (pendingTables.length === 0) {
-        grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text-muted);padding:3rem;">No hay comandas pendientes</div>';
+        grid.innerHTML = emptyState('check', 'Todo al día', 'Las nuevas comandas aparecerán aquí automáticamente.');
         return;
     }
 
@@ -2159,27 +2397,31 @@ function renderKDS() {
         card.className = 'kds-card ' + urgencyClass;
 
         var itemsHtml = '';
+        var doneCount = 0, totalCount = 0;
         pt.tickets.forEach(function (tk) {
             tk.items.forEach(function (it) {
-                var checked = it.done ? 'checked' : '';
-                var lineClass = it.done ? 'completed' : '';
-                itemsHtml += '<label class="kds-item ' + lineClass + '" style="cursor:pointer; display:flex; align-items:center; gap:1rem;">' +
-                    '<input type="checkbox" data-tid="' + t.id + '" data-tk="' + tk.id + '" data-pid="' + it.productId + '" style="transform:scale(1.5);" ' + checked + '>' +
-                    '<span class="kds-item-qty">' + it.qty + 'x</span><span class="kds-item-name">' + it.name + '</span>' +
+                totalCount++;
+                if (it.done) doneCount++;
+                itemsHtml += '<label class="kds-item' + (it.done ? ' completed' : '') + '">' +
+                    '<input type="checkbox" data-tid="' + escapeHtml(t.id) + '" data-tk="' + escapeHtml(tk.id) + '" data-pid="' + escapeHtml(it.productId) + '"' + (it.done ? ' checked' : '') + '>' +
+                    '<span class="kds-check" aria-hidden="true">' + icon('check', 18) + '</span>' +
+                    '<span class="kds-item-qty">' + it.qty + '×</span><span class="kds-item-name">' + escapeHtml(it.name) + '</span>' +
                     '</label>';
             });
         });
 
         var allDone = pt.tickets.every(function (tk) { return tk.items.every(function (i) { return i.done; }); });
+        var safeName = escapeHtml(t.name);
 
         if (allDone) {
-            urgencyClass = 'urgent-low';
-            card.className = 'kds-card ' + urgencyClass;
-            card.innerHTML = '<div class="kds-card-header"><span class="kds-card-title">' + t.name + '</span></div>' +
-                '<div style="text-align:center; padding:1.5rem 0; color:#10b981; font-weight:700; font-size:1.2rem;">¡Bandeja Lista!<br><small style="color:var(--text-muted);font-weight:normal;font-size:0.9rem;">Esperando que el mesero despache</small></div>';
+            card.className = 'kds-card kds-ready';
+            card.innerHTML = '<div class="kds-card-header"><span class="kds-card-title">' + safeName + '</span></div>' +
+                '<div class="kds-ready-body">' + icon('check', 32) + '<strong>¡Bandeja lista!</strong><small>Esperando que el mesero despache</small></div>';
         } else {
-            card.innerHTML = '<div class="kds-card-header"><span class="kds-card-title">' + t.name + '</span><span class="kds-card-time">' + (mins > 0 ? mins + ' min' : 'Ahora') + '</span></div>' +
-                '<div class="kds-items" style="display:flex;flex-direction:column;gap:0.5rem;margin-top:1rem;">' + itemsHtml + '</div>';
+            card.innerHTML = '<div class="kds-card-header"><span class="kds-card-title">' + safeName + '</span>' +
+                '<span class="kds-card-time">' + icon('clock', 14) + ' ' + timeAgo(oldestTime) + '</span></div>' +
+                '<div class="kds-progress"><i style="width:' + Math.round(doneCount / totalCount * 100) + '%"></i></div>' +
+                '<div class="kds-items">' + itemsHtml + '</div>';
 
             card.querySelectorAll('input[type="checkbox"]').forEach(function (chk) {
                 chk.addEventListener('change', function (e) {
@@ -2190,12 +2432,15 @@ function renderKDS() {
 
                     var actualTable = STATE.tables.find(function (x) { return x.id === tid; });
                     if (actualTable && actualTable.tickets) {
-                        var actualTk = actualTable.tickets.find(function (x) { return x.id === tkid; });
+                        var tkIdx = actualTable.tickets.findIndex(function (x) { return x.id === tkid; });
+                        var actualTk = actualTable.tickets[tkIdx];
                         if (actualTk) {
-                            var actualIt = actualTk.items.find(function (x) { return x.productId === pid; });
-                            if (actualIt) {
-                                actualIt.done = isChecked;
-                                saveTable(actualTable);
+                            var itIdx = actualTk.items.findIndex(function (x) { return x.productId === pid; });
+                            if (itIdx >= 0) {
+                                actualTk.items[itIdx].done = isChecked;
+                                // Solo el campo `done` de ese ítem
+                                db.ref('tables/' + tid + '/tickets/' + tkIdx + '/items/' + itIdx + '/done').set(isChecked)
+                                    .catch(function (err) { toast('Error al guardar: ' + err.message, 'error'); });
                                 renderKDS();
                             }
                         }
@@ -2218,7 +2463,7 @@ function renderBestSellersChart() {
     STATE.history.forEach(function (h) {
         if (h.items) {
             h.items.forEach(function (it) {
-                if (it.name && it.name !== 'Propina Sugerida (10%)') {
+                if (!isAdjustmentLine(it)) {
                     salesCounts[it.name] = (salesCounts[it.name] || 0) + it.qty;
                 }
             });
@@ -2248,7 +2493,7 @@ function renderBestSellersChart() {
 
         var row = document.createElement('div');
         row.className = 'chart-bar-row';
-        row.innerHTML = '<div class="chart-bar-label" title="' + item.name + '">' + item.name + '</div>' +
+        row.innerHTML = '<div class="chart-bar-label" title="' + escapeHtml(item.name) + '">' + escapeHtml(item.name) + '</div>' +
             '<div class="chart-bar-track">' +
             '<div class="chart-bar-fill" style="width: 0%;"></div>' +
             '</div>' +
@@ -2295,19 +2540,19 @@ function renderIngredients() {
     });
 
     if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:1.5rem; color:var(--text-muted);">No se encontraron ingredientes</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" class="table-empty">No se encontraron ingredientes</td></tr>';
         return;
     }
 
     filtered.forEach(function (ing) {
         var tr = document.createElement('tr');
-        tr.style.borderBottom = '1px solid var(--border)';
-        tr.innerHTML = '<td style="padding:0.75rem 0.5rem; font-weight:500;">' + ing.name + '</td>' +
-            '<td style="padding:0.75rem 0.5rem; color:var(--text-muted);">' + (ing.unit === 'unidades' ? 'Unidades' : ing.unit) + '</td>' +
-            '<td style="padding:0.75rem 0.5rem; text-align:right; font-weight:600;">' + fmt(ing.cost) + ' / ' + ing.unit + '</td>' +
-            '<td style="padding:0.75rem 0.5rem; text-align:center; display:flex; gap:0.5rem; justify-content:center;">' +
-            '<button class="btn btn-outline btn-edit-ing" style="padding:0.25rem 0.5rem; font-size:0.8rem;">Editar</button>' +
-            '<button class="btn btn-danger btn-del-ing" style="padding:0.25rem 0.5rem;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>' +
+        var unit = escapeHtml(ing.unit);
+        tr.innerHTML = '<td class="td-strong">' + escapeHtml(ing.name) + '</td>' +
+            '<td class="td-muted">' + (ing.unit === 'unidades' ? 'Unidades' : unit) + '</td>' +
+            '<td class="td-num td-strong">' + fmtCost(ing.cost) + ' / ' + unit + '</td>' +
+            '<td class="td-actions">' +
+            '<button class="btn btn-outline btn-sm btn-edit-ing">' + icon('edit', 14) + ' Editar</button>' +
+            '<button class="btn btn-ghost-danger btn-sm btn-icon btn-del-ing" aria-label="Eliminar ' + escapeHtml(ing.name) + '" title="Eliminar">' + icon('trash', 16) + '</button>' +
             '</td>';
         
         tr.querySelector('.btn-edit-ing').addEventListener('click', function () {
@@ -2342,7 +2587,7 @@ function renderIngredients() {
                 if (menuChanged) {
                     saveMenu();
                 }
-            });
+            }, { okText: 'Eliminar ingrediente' });
         });
 
         tbody.appendChild(tr);
@@ -2414,7 +2659,7 @@ function showRecipeDetails(pid) {
     var totalCost = 0;
 
     if (recipe.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:1.5rem; color:var(--text-muted);">No hay ingredientes en esta receta.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="table-empty">No hay ingredientes en esta receta.</td></tr>';
     } else {
         recipe.forEach(function (rItem) {
             var ing = STATE.ingredients.find(function (i) { return i.id === rItem.ingredientId; });
@@ -2424,13 +2669,12 @@ function showRecipeDetails(pid) {
             totalCost += costSub;
 
             var tr = document.createElement('tr');
-            tr.style.borderBottom = '1px solid var(--border)';
-            tr.innerHTML = '<td style="padding:0.75rem 0.5rem; font-weight:500;">' + ing.name + '</td>' +
-                '<td style="padding:0.75rem 0.5rem; text-align:right;">' + rItem.qty + ' ' + ing.unit + '</td>' +
-                '<td style="padding:0.75rem 0.5rem; text-align:right; color:var(--text-muted);">' + fmt(ing.cost) + '</td>' +
-                '<td style="padding:0.75rem 0.5rem; text-align:right; font-weight:600;">' + fmt(costSub) + '</td>' +
-                '<td style="padding:0.75rem 0.5rem; text-align:center;">' +
-                '<button class="btn btn-danger btn-del-recipe-ing" style="padding:0.25rem 0.5rem;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>' +
+            tr.innerHTML = '<td class="td-strong">' + escapeHtml(ing.name) + '</td>' +
+                '<td class="td-num">' + rItem.qty + ' ' + escapeHtml(ing.unit) + '</td>' +
+                '<td class="td-num td-muted">' + fmtCost(ing.cost) + '</td>' +
+                '<td class="td-num td-strong">' + fmt(costSub) + '</td>' +
+                '<td class="td-actions">' +
+                '<button class="btn btn-ghost-danger btn-sm btn-icon btn-del-recipe-ing" aria-label="Quitar ' + escapeHtml(ing.name) + '" title="Quitar">' + icon('trash', 16) + '</button>' +
                 '</td>';
 
             tr.querySelector('.btn-del-recipe-ing').addEventListener('click', function () {
@@ -2443,7 +2687,7 @@ function showRecipeDetails(pid) {
                 });
                 p.preparationCost = newTotal;
 
-                saveMenu();
+                saveProduct(p);
                 showRecipeDetails(pid);
             });
 
@@ -2471,34 +2715,25 @@ function showRecipeDetails(pid) {
     }
 }
 
+// Recalcula costos al cambiar ingredientes. Guarda solo los productos cuyo costo
+// cambió de verdad (con tolerancia a decimales), para no reescribir todo el menú
+// desde cada dispositivo conectado.
 function recalculateAllRecipeCosts() {
-    if (!STATE.menu || !STATE.ingredients) return;
-    var menuChanged = false;
+    if (!STATE.loaded.menu || !STATE.menu || !STATE.ingredients) return;
     STATE.menu.forEach(function (p) {
         var recipe = p.recipe || [];
         var totalCost = 0;
-        var hasRecipe = (recipe.length > 0);
         recipe.forEach(function (rItem) {
             var ing = STATE.ingredients.find(function (i) { return i.id === rItem.ingredientId; });
-            if (ing) {
-                totalCost += rItem.qty * (ing.cost || 0);
-            }
+            if (ing) totalCost += rItem.qty * (ing.cost || 0);
         });
-        if (hasRecipe) {
-            if (p.preparationCost !== totalCost) {
-                p.preparationCost = totalCost;
-                menuChanged = true;
-            }
-        } else {
-            if (p.preparationCost > 0) {
-                p.preparationCost = 0;
-                menuChanged = true;
-            }
+        var current = typeof p.preparationCost === 'number' ? p.preparationCost : 0;
+        if (recipe.length === 0 && !(current > 0)) return;
+        if (Math.abs(current - totalCost) > 0.01) {
+            p.preparationCost = totalCost;
+            saveProduct(p);
         }
     });
-    if (menuChanged) {
-        saveMenu();
-    }
 }
 
 // ==========================================================================
@@ -2509,12 +2744,15 @@ function renderLoyalty() {
     if (!tbody) return;
 
     var q = ($('loyalty-search') ? $('loyalty-search').value : '').toLowerCase().trim();
+    var qDigits = q.replace(/\D/g, '');
     var filtered = (STATE.customers || []).filter(function (c) {
         var name = (c.name || '').toLowerCase();
         var phone = (c.phone || '').toLowerCase();
+        var phoneDigits = (c.phone || '').replace(/\D/g, '');
         var id = (c.id || '').toLowerCase();
         var email = (c.email || '').toLowerCase();
-        return name.indexOf(q) >= 0 || phone.indexOf(q) >= 0 || id.indexOf(q) >= 0 || email.indexOf(q) >= 0;
+        return name.indexOf(q) >= 0 || phone.indexOf(q) >= 0 || id.indexOf(q) >= 0 || email.indexOf(q) >= 0 ||
+               (qDigits.length >= 4 && phoneDigits.indexOf(qDigits) >= 0);
     });
 
     // Actualizar resumen
@@ -2528,9 +2766,13 @@ function renderLoyalty() {
 
     tbody.innerHTML = '';
 
+    if (!STATE.loaded.customers) {
+        tbody.innerHTML = '<tr><td colspan="5" class="table-empty">Cargando socios…</td></tr>';
+        return;
+    }
     if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--text-muted);">' +
-            (q ? 'No se encontraron socios con esa búsqueda.' : 'No hay socios registrados aún. Haz clic en "Nuevo Cliente" para comenzar.') +
+        tbody.innerHTML = '<tr><td colspan="5" class="table-empty">' +
+            (q ? 'No se encontraron socios con esa búsqueda.' : 'Aún no hay socios. Toca "Nuevo socio" para comenzar.') +
             '</td></tr>';
         return;
     }
@@ -2538,45 +2780,30 @@ function renderLoyalty() {
     filtered.forEach(function (c) {
         var stamps = c.stamps || 0;
         var tr = document.createElement('tr');
-        tr.style.borderBottom = '1px solid var(--border)';
-
-        var cups = '';
-        for (var i = 0; i < Math.min(stamps, 10); i++) {
-            cups += '☕';
-        }
-        for (var j = stamps; j < 10; j++) {
-            cups += '⚪';
-        }
-
         var isRewardReady = stamps >= 10;
-        var badgeClass = isRewardReady ? 'stamp-badge-gold' : 'stamp-badge-green';
-        var badgeText = isRewardReady ? '🎉 ¡Café Gratis Listo!' : stamps + ' / 10 sellos';
+        var safeName = escapeHtml(c.name || 'Sin nombre');
 
-        tr.innerHTML = 
-            '<td style="padding:0.875rem 1rem;">' +
-                '<strong style="font-size:0.95rem; color:var(--text-main);">' + escapeHtml(c.name || 'Sin Nombre') + '</strong>' +
-                '<div style="font-size:0.75rem; color:var(--text-muted); font-family:monospace; margin-top:2px;">ID: ' + c.id + '</div>' +
+        tr.innerHTML =
+            '<td data-label="Socio">' +
+                '<strong class="td-strong">' + safeName + '</strong>' +
+                '<div class="td-id">ID ' + escapeHtml(c.id) + '</div>' +
             '</td>' +
-            '<td style="padding:0.875rem 1rem;">' +
-                '<div style="font-weight:500;">' + escapeHtml(c.phone || '-') + '</div>' +
-                (c.email ? '<div style="font-size:0.75rem; color:var(--text-muted);">' + escapeHtml(c.email) + '</div>' : '') +
+            '<td data-label="Contacto">' +
+                '<div>' + escapeHtml(c.phone || '-') + '</div>' +
+                (c.email ? '<div class="td-muted td-small">' + escapeHtml(c.email) + '</div>' : '') +
             '</td>' +
-            '<td style="padding:0.875rem 1rem;">' +
-                '<div style="letter-spacing:2px; font-size:1.1rem; margin-bottom:4px;">' + cups + '</div>' +
-                '<span class="stamp-badge-tag ' + badgeClass + '">' + badgeText + '</span>' +
+            '<td data-label="Sellos">' +
+                stampDotsHtml(stamps) +
+                '<span class="stamp-badge-tag ' + (isRewardReady ? 'stamp-badge-gold' : 'stamp-badge-green') + '">' +
+                    (isRewardReady ? '¡Premio listo!' : stamps + ' / 10') + '</span>' +
             '</td>' +
-            '<td style="padding:0.875rem 1rem; text-align:center;">' +
-                '<strong style="font-size:1rem; color:#d97706;">' + (c.rewardsClaimed || 0) + '</strong>' +
-            '</td>' +
-            '<td style="padding:0.875rem 1rem; text-align:center;">' +
-                '<div style="display:flex; gap:0.4rem; justify-content:center; flex-wrap:wrap;">' +
-                    '<button class="btn btn-success btn-add-stamp" title="Sumar 1 Sello" style="padding:0.35rem 0.6rem; font-size:0.8rem;">+1 Sello</button>' +
-                    (stamps > 0 ? '<button class="btn btn-outline btn-sub-stamp" title="Restar 1 Sello" style="padding:0.35rem 0.5rem; font-size:0.8rem;">-1</button>' : '') +
-                    (isRewardReady ? '<button class="btn btn-primary btn-redeem-reward" style="padding:0.35rem 0.6rem; font-size:0.8rem; background:#d97706; border-color:#d97706;">Canjear Premio</button>' : '') +
-                    '<button class="btn btn-outline btn-view-card" title="Ver Tarjeta Digital" style="padding:0.35rem 0.6rem; font-size:0.8rem;">📱 Tarjeta</button>' +
-                    '<button class="btn btn-outline btn-edit-customer" title="Editar Socio" style="padding:0.35rem 0.5rem; font-size:0.8rem;">✏️</button>' +
-                    '<button class="btn btn-danger btn-del-customer" title="Eliminar Socio" style="padding:0.35rem 0.5rem; font-size:0.8rem;">🗑️</button>' +
-                '</div>' +
+            '<td data-label="Canjes" class="td-center"><strong>' + (c.rewardsClaimed || 0) + '</strong></td>' +
+            '<td data-label="" class="td-actions">' +
+                '<button class="btn btn-primary btn-sm btn-add-stamp">' + icon('plus', 14) + ' Sello</button>' +
+                (stamps > 0 ? '<button class="btn btn-outline btn-sm btn-sub-stamp" aria-label="Restar 1 sello a ' + safeName + '" title="Restar 1 sello">−1</button>' : '') +
+                (isRewardReady ? '<button class="btn btn-accent btn-sm btn-redeem-reward">' + icon('gift', 14) + ' Canjear</button>' : '') +
+                '<button class="btn btn-outline btn-sm btn-icon btn-edit-customer" aria-label="Editar ' + safeName + '" title="Editar">' + icon('edit', 16) + '</button>' +
+                '<button class="btn btn-ghost-danger btn-sm btn-icon btn-del-customer" aria-label="Eliminar ' + safeName + '" title="Eliminar">' + icon('trash', 16) + '</button>' +
             '</td>';
 
         // Eventos
@@ -2598,22 +2825,18 @@ function renderLoyalty() {
             });
         }
 
-        tr.querySelector('.btn-view-card').addEventListener('click', function () {
-            showCustomerCard(c.id);
-        });
-
         tr.querySelector('.btn-edit-customer').addEventListener('click', function () {
             editCustomer(c.id);
         });
 
         tr.querySelector('.btn-del-customer').addEventListener('click', function () {
-            showConfirm('¿Eliminar al socio ' + c.name + ' (' + c.phone + ')?', function () {
+            showConfirm('¿Eliminar al socio ' + c.name + ' (' + c.phone + ')? Perderá sus sellos.', function () {
                 db.ref('customers/' + c.id).remove().then(function () {
-                    alert('Socio eliminado.');
+                    toast('Socio eliminado.', 'success');
                 }).catch(function (e) {
-                    alert('Error: ' + e.message);
+                    toast('Error: ' + e.message, 'error');
                 });
-            });
+            }, { okText: 'Eliminar socio' });
         });
 
         tbody.appendChild(tr);
@@ -2622,80 +2845,85 @@ function renderLoyalty() {
 
 function escapeHtml(str) {
     if (!str) return '';
-    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+// Suma/resta sellos con transaction(): toques simultáneos (o la app de clientes)
+// no se pisan. Devuelve una promesa.
 function addCustomerStamp(customerId, count) {
     var c = (STATE.customers || []).find(function (x) { return x.id === customerId; });
-    if (!c) return;
-    
-    var oldStamps = c.stamps || 0;
-    var newStamps = Math.max(0, oldStamps + count);
-    
-    var updates = {};
-    updates['customers/' + customerId + '/stamps'] = newStamps;
-    
-    var referrer = null;
-    var referrerRewarded = false;
-    
-    if (oldStamps === 0 && newStamps >= 1 && c.referredBy) {
-        referrer = (STATE.customers || []).find(function (x) { return x.referralCode === c.referredBy; });
-        if (referrer) {
-            updates['customers/' + referrer.id + '/stamps'] = (referrer.stamps || 0) + 1;
-            updates['customers/' + customerId + '/referredBy'] = null; // Clear so it only happens once
-            referrerRewarded = true;
+    if (!c) return Promise.resolve();
+    var oldStamps = 0;
+
+    return db.ref('customers/' + customerId + '/stamps').transaction(function (cur) {
+        oldStamps = cur || 0;
+        return Math.max(0, oldStamps + count);
+    }).then(function (res) {
+        if (!res.committed) return;
+        var newStamps = res.snapshot.val() || 0;
+        if (count > 0) {
+            db.ref('customers/' + customerId + '/lastVisit').set(new Date().toISOString());
         }
-    }
-    
-    db.ref().update(updates).then(function () {
-        if (referrerRewarded) {
-            alert('¡Bono de referido aplicado! Se regaló 1 sello a su amigo ' + (referrer.name || ''));
+
+        // Bono de referido: la primera vez que el socio pasa de 0 a 1 sello
+        if (oldStamps === 0 && newStamps >= 1 && c.referredBy) {
+            var referrer = (STATE.customers || []).find(function (x) { return x.referralCode === c.referredBy; });
+            if (referrer) {
+                db.ref('customers/' + customerId + '/referredBy').set(null);
+                db.ref('customers/' + referrer.id + '/stamps').transaction(function (cur) { return (cur || 0) + 1; });
+                toast('Bono de referido: 1 sello para ' + (referrer.name || 'su amigo') + '.', 'success');
+            }
         }
-        if (count > 0 && newStamps >= 10) {
-            alert('🎉 ¡Felicidades! ' + c.name + ' ha alcanzado o superado 10 sellos.');
+        if (count > 0) {
+            toast(newStamps >= 10 ? c.name + ' completó 10 sellos. ¡Premio listo!' : '+1 sello para ' + c.name + ' (' + newStamps + '/10)', 'success');
         }
     }).catch(function (e) {
-        alert('Error al guardar sellos: ' + e.message);
+        toast('Error al guardar sellos: ' + e.message, 'error');
     });
 }
 
-function redeemCustomerReward(customerId) {
+function redeemCustomerReward(customerId, onDone) {
     var c = (STATE.customers || []).find(function (x) { return x.id === customerId; });
     if (!c) return;
     if ((c.stamps || 0) < 10) {
-        alert('El socio no cuenta con 10 sellos acumulados aún.');
+        toast('El socio aún no tiene 10 sellos.', 'error');
         return;
     }
-    showConfirm('¿Confirmar canje de premio para ' + c.name + '?', function () {
-        var newStamps = Math.max(0, (c.stamps || 0) - 10);
-        var newRewards = (c.rewardsClaimed || 0) + 1;
-        var currentTier = c.tier || 1;
-        var currentStars = c.starsEarned || 0;
-        
-        var newTier = currentTier;
-        var newStars = currentStars;
-        
-        if (currentTier < 3) {
-            newTier = currentTier + 1;
-            newStars = currentStars + 1;
-        }
-
-        db.ref('customers/' + customerId).update({
-            stamps: newStamps,
-            rewardsClaimed: newRewards,
-            tier: newTier,
-            starsEarned: newStars,
-            lastRewardDate: new Date().toISOString()
-        }).then(function () {
-            if (newTier > currentTier) {
-                alert('✅ ¡Premio canjeado con éxito! Se descontaron 10 sellos.\n⭐ El cliente ha avanzado a la Senda ' + (newTier === 2 ? 'Plata' : 'Oro') + ' y ganó una estrella.');
+    showConfirm('¿Canjear el premio de ' + c.name + '? Se descontarán 10 sellos.', function () {
+        var result = null;
+        db.ref('customers/' + customerId).transaction(function (cur) {
+            if (!cur) return cur;
+            if ((cur.stamps || 0) < 10) return; // otro dispositivo ya canjeó: abortar
+            var tier = cur.tier || 1;
+            cur.stamps = cur.stamps - 10;
+            cur.rewardsClaimed = (cur.rewardsClaimed || 0) + 1;
+            if (tier < 3) { cur.tier = tier + 1; cur.starsEarned = (cur.starsEarned || 0) + 1; }
+            cur.lastRewardDate = new Date().toISOString();
+            cur.lastVisit = cur.lastRewardDate;
+            result = { oldTier: tier, newTier: cur.tier || tier };
+            return cur;
+        }).then(function (res) {
+            if (!res.committed || !result) {
+                toast('No se pudo canjear: el socio ya no tiene 10 sellos.', 'error');
+            } else if (result.newTier > result.oldTier) {
+                toast('Premio canjeado. ' + c.name + ' sube a la Senda ' + (result.newTier === 2 ? 'Plata' : 'Oro') + ' ⭐', 'success');
             } else {
-                alert('✅ ¡Premio canjeado con éxito! Se descontaron 10 sellos.');
+                toast('Premio canjeado. Se descontaron 10 sellos.', 'success');
             }
+            if (onDone) onDone();
         }).catch(function (e) {
-            alert('Error al canjear premio: ' + e.message);
+            toast('Error al canjear premio: ' + e.message, 'error');
         });
-    });
+    }, { title: 'Canjear premio', okText: 'Canjear', variant: 'primary' });
+}
+
+// Normaliza un teléfono chileno a 9 dígitos (9XXXXXXXX) para comparar socios
+// sin importar cómo se escribió ("+56 9 1234 5678", "912345678", "12345678"...).
+function normalizePhone(raw) {
+    var d = String(raw || '').replace(/\D/g, '');
+    if (d.length > 9) d = d.slice(-9);
+    if (d.length === 8) d = '9' + d;
+    return d;
 }
 
 function editCustomer(customerId) {
@@ -2710,108 +2938,46 @@ function editCustomer(customerId) {
     $('modal-customer').classList.remove('hidden');
 }
 
-function showCustomerCard(customerId) {
-    var c = (STATE.customers || []).find(function (x) { return x.id === customerId || x.phone === customerId; });
-    if (!c) {
-        alert('No se encontró información del socio.');
-        return;
-    }
-
-    var stamps = c.stamps || 0;
-    $('card-customer-name').textContent = '¡Hola, ' + (c.name || 'Socio') + '!';
-    $('card-customer-status').textContent = 'Llevas ' + stamps + ' de 10 sellos acumulados';
-    $('card-customer-id').textContent = 'ID: ' + c.id;
-
-    // Construir Grilla de Sellos
-    var stampsGrid = $('card-stamps-grid');
-    stampsGrid.innerHTML = '';
-    for (var i = 1; i <= 10; i++) {
-        var slot = document.createElement('div');
-        var isActive = i <= stamps;
-        var isFreeSlot = (i === 10);
-
-        slot.className = 'stamp-slot' + (isActive ? ' active' : '') + (isFreeSlot ? ' free-slot' : '');
-        var iconActive = '<img src="sello.png" style="width: 100%; height: 100%; object-fit: contain;">';
-        var iconInactive = '<img src="grano_sol.png" style="width: 100%; height: 100%; object-fit: contain; opacity: 0.2; filter: grayscale(100%);">';
-        var sizeStyle = isActive ? 'width: 55px; height: 55px; position: absolute; z-index: 10;' : 'width: 32px; height: 32px;';
-
-        slot.innerHTML = '<span class="stamp-icon" style="' + sizeStyle + ' display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 50%;">' + (isActive ? iconActive : iconInactive) + '</span>' +
-                         '<span class="stamp-num">' + (isFreeSlot ? 'GRATIS' : i) + '</span>';
-        stampsGrid.appendChild(slot);
-    }
-
-    // Banner de Premio
-    var rewardBanner = $('card-reward-banner');
-    if (rewardBanner) {
-        rewardBanner.style.display = stamps >= 10 ? 'flex' : 'none';
-    }
-
-    // Código QR
-    var qrContainer = $('card-qr-code');
-    qrContainer.innerHTML = '';
-    if (typeof QRCode !== 'undefined') {
-        new QRCode(qrContainer, {
-            text: c.id,
-            width: 140,
-            height: 140,
-            colorDark: '#047857',
-            colorLight: '#ffffff',
-            correctLevel: QRCode.CorrectLevel.H
-        });
-    } else {
-        qrContainer.innerHTML = '<div style="font-family:monospace; font-size:1.2rem; font-weight:bold; color:#047857; text-align:center;">' + c.id + '</div>';
-    }
-
-    // Mostrar overlay
-    $('view-customer-card').classList.remove('hidden');
-}
-
-function checkCustomerUrlParam() {
-    var urlParams = new URLSearchParams(window.location.search);
-    var custId = urlParams.get('cliente') || urlParams.get('card') || urlParams.get('id');
-    if (!custId && window.location.hash) {
-        var hash = window.location.hash.replace('#', '');
-        if (hash.indexOf('cliente=') >= 0) custId = hash.split('cliente=')[1];
-        else if (hash.indexOf('card=') >= 0) custId = hash.split('card=')[1];
-    }
-    if (custId && STATE.customers && STATE.customers.length > 0) {
-        showCustomerCard(custId);
-    }
-}
-
 // --- Configuración App Cliente ---
-var STATE_APPCONFIG = { storeStatus: 'auto', cafeSemana: '', tiers: {} };
+var STATE_APPCONFIG = { storeStatus: 'auto', cafeSemana: '', granoSemana: null, tiers: {} };
+var tiersDirty = false;
 
 function initAppConfig() {
     db.ref('settings/appConfig').on('value', function (snap) {
         var data = snap.val() || {};
+        var tiersJson = JSON.stringify(data.tiers || {});
+        var tiersChanged = tiersJson !== JSON.stringify(STATE_APPCONFIG.tiers);
         STATE_APPCONFIG.storeStatus = data.storeStatus || 'auto';
         STATE_APPCONFIG.cafeSemana = data.cafeSemana || '';
+        STATE_APPCONFIG.granoSemana = data.granoSemana || null;
         STATE_APPCONFIG.tiers = data.tiers || {};
-        
+
         var selectStatus = $('setting-store-status');
         if (selectStatus) selectStatus.value = STATE_APPCONFIG.storeStatus;
-        
+
         var inputCafeSemana = $('setting-cafe-semana');
-        if (inputCafeSemana) inputCafeSemana.value = STATE_APPCONFIG.cafeSemana || '';
-        
+        if (inputCafeSemana && document.activeElement !== inputCafeSemana) inputCafeSemana.value = STATE_APPCONFIG.cafeSemana || '';
+
         var inputGranoNombre = $('setting-grano-nombre');
-        if (inputGranoNombre) inputGranoNombre.value = (STATE_APPCONFIG.granoSemana && STATE_APPCONFIG.granoSemana.nombre) || '';
+        if (inputGranoNombre && document.activeElement !== inputGranoNombre) inputGranoNombre.value = (STATE_APPCONFIG.granoSemana && STATE_APPCONFIG.granoSemana.nombre) || '';
 
         var inputGranoDesc = $('setting-grano-desc');
-        if (inputGranoDesc) inputGranoDesc.value = (STATE_APPCONFIG.granoSemana && STATE_APPCONFIG.granoSemana.desc) || '';
-        
-        renderTiersConfig();
+        if (inputGranoDesc && document.activeElement !== inputGranoDesc) inputGranoDesc.value = (STATE_APPCONFIG.granoSemana && STATE_APPCONFIG.granoSemana.desc) || '';
+
+        // No borrar lo que se está editando en las sendas si cambió otro campo
+        if (!tiersDirty && (tiersChanged || !$('tier-list-1'))) renderTiersConfig();
     });
+    var tiersBox = $('tiers-config-container');
+    if (tiersBox) tiersBox.addEventListener('input', function () { tiersDirty = true; });
 
     var btnSaveStatus = $('btn-save-store-status');
     if (btnSaveStatus) {
         btnSaveStatus.addEventListener('click', function () {
             var val = $('setting-store-status').value;
             db.ref('settings/appConfig/storeStatus').set(val).then(function() {
-                alert('Estado del local actualizado con éxito.');
+                toast('Estado del local actualizado.', 'success');
             }).catch(function(e) {
-                alert('Error al guardar estado: ' + e.message);
+                toast('Error al guardar estado: ' + e.message, 'error');
             });
         });
     }
@@ -2829,9 +2995,9 @@ function initAppConfig() {
             };
             
             db.ref().update(updates).then(function() {
-                alert('Destacados actualizados con éxito.');
+                toast('Destacados actualizados.', 'success');
             }).catch(function(e) {
-                alert('Error al guardar: ' + e.message);
+                toast('Error al guardar: ' + e.message, 'error');
             });
         });
     }
@@ -2852,10 +3018,11 @@ function initAppConfig() {
                     }
                 });
             }
+            tiersDirty = false;
             db.ref('settings/appConfig/tiers').set(newTiers).then(function() {
-                alert('Configuración de Sendas actualizada con éxito.');
+                toast('Sendas actualizadas.', 'success');
             }).catch(function(e) {
-                alert('Error al guardar sendas: ' + e.message);
+                toast('Error al guardar sendas: ' + e.message, 'error');
             });
         });
     }
@@ -2869,10 +3036,10 @@ function renderTiersConfig() {
     var sendaNames = {1: 'Bronce (Senda 1)', 2: 'Plata (Senda 2)', 3: 'Oro (Senda 3)'};
     
     for (var s = 1; s <= 3; s++) {
-        html += '<div style="margin-bottom: 1rem; border:1px solid var(--border); padding: 1rem; border-radius: var(--radius-md);">';
-        html += '<h4 style="margin-bottom: 0.5rem; color: var(--primary);">' + sendaNames[s] + '</h4>';
+        html += '<div class="tier-block tier-' + s + '">';
+        html += '<h4 class="tier-title">' + sendaNames[s] + '</h4>';
         html += '<div id="tier-list-' + s + '"></div>';
-        html += '<button class="btn btn-outline btn-add-milestone" data-tier="' + s + '" style="margin-top:0.5rem; font-size:0.8rem;">+ Agregar Premio Intermedio</button>';
+        html += '<button type="button" class="btn btn-outline btn-sm btn-add-milestone" data-tier="' + s + '">' + icon('plus', 14) + ' Agregar premio intermedio</button>';
         html += '</div>';
     }
     
@@ -2894,8 +3061,9 @@ function renderTiersConfig() {
     }
     
     document.querySelectorAll('.btn-add-milestone').forEach(function(btn) {
-        btn.addEventListener('click', function(e) {
-            var tier = e.target.getAttribute('data-tier');
+        btn.addEventListener('click', function() {
+            var tier = btn.getAttribute('data-tier');
+            tiersDirty = true;
             var tierList = $('tier-list-' + tier);
             addMilestoneRow(tierList, tier, '', '');
         });
@@ -2904,23 +3072,16 @@ function renderTiersConfig() {
 
 function addMilestoneRow(container, tier, stampNum, prize) {
     var div = document.createElement('div');
-    div.className = 'tier-milestone-row form-row';
+    div.className = 'tier-milestone-row';
     div.setAttribute('data-tier', tier);
-    div.style.marginBottom = '0.5rem';
-    div.style.alignItems = 'center';
-    
-    div.innerHTML = 
-        '<div style="width:100px;">' +
-            '<input type="number" class="input-field milestone-stamp" placeholder="Sello Ej: 5" min="1" max="10" value="' + (stampNum || '') + '">' +
-        '</div>' +
-        '<div style="flex:1;">' +
-            '<input type="text" class="input-field milestone-prize" placeholder="Descripción del Premio" value="' + (prize || '') + '">' +
-        '</div>' +
-        '<div>' +
-            '<button class="btn btn-danger btn-remove-milestone" style="padding:0.5rem;" title="Quitar">X</button>' +
-        '</div>';
-        
+
+    div.innerHTML =
+        '<input type="number" class="input-field milestone-stamp" placeholder="Sello" aria-label="Número de sello" min="1" max="10" value="' + escapeHtml(stampNum || '') + '">' +
+        '<input type="text" class="input-field milestone-prize" placeholder="Descripción del premio" aria-label="Premio" value="' + escapeHtml(prize || '') + '">' +
+        '<button type="button" class="btn btn-ghost-danger btn-icon btn-remove-milestone" aria-label="Quitar premio" title="Quitar">' + icon('x', 16) + '</button>';
+
     div.querySelector('.btn-remove-milestone').addEventListener('click', function() {
+        tiersDirty = true;
         div.remove();
     });
     

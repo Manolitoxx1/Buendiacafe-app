@@ -4,14 +4,14 @@
   "description": "Sistema de gestión y punto de venta para Buen Día Café.",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#f8fafc",
-  "theme_color": "#047857",
+  "background_color": "#faf7f0",
+  "theme_color": "#141414",
   "icons": [
     {
       "src": "./icon.svg",
-      "sizes": "192x192 512x512",
+      "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ]
 }
