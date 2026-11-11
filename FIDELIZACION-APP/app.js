@@ -327,6 +327,10 @@ function loadCustomerRealtime(customerId) {
         closeModal(modalRegister);
         renderCustomerUI(data);
 
+        // Con la tarjeta ya activa: preparar y ofrecer la instalación
+        syncIosInstallTarget();
+        maybeOfferInstall();
+
         // Comprobar reenganche semanal
         checkReengagementNotification(data);
     });
@@ -1496,11 +1500,73 @@ window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     // Stash the event so it can be triggered later.
     deferredPrompt = e;
-    // Show the custom install banner if not dismissed before
-    if (!localStorage.getItem('buendia_pwa_dismissed') && pwaBanner) {
+    maybeOfferInstall();
+});
+
+window.addEventListener('appinstalled', () => {
+    deferredPrompt = null;
+    if (pwaBanner) pwaBanner.style.display = 'none';
+});
+
+// ¿Ya se está ejecutando como app instalada?
+function isRunningStandalone() {
+    return window.navigator.standalone === true ||
+        (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+}
+
+function isIosDevice() {
+    const ua = window.navigator.userAgent || '';
+    // iPadOS se presenta como Mac con pantalla táctil
+    return /iphone|ipad|ipod/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1);
+}
+
+let iosInstallOffered = false;
+
+// Ofrece instalar solo con la tarjeta ya activa (nunca sobre el registro)
+// y nunca dentro de Instagram/Facebook/etc., donde no se puede instalar.
+function maybeOfferInstall() {
+    if (!currentCustomerId || !currentCustomerData) return;
+    if (isRunningStandalone() || detectInAppBrowser()) return;
+
+    if (deferredPrompt && pwaBanner && !localStorage.getItem('buendia_pwa_dismissed')) {
         pwaBanner.style.display = 'flex';
     }
-});
+
+    if (isIosDevice() && !iosInstallOffered && !localStorage.getItem('buendia_ios_install_dismissed')) {
+        iosInstallOffered = true;
+        setTimeout(() => {
+            if (modalInstallIos && currentCustomerId) openModal(modalInstallIos);
+        }, 2000);
+    }
+}
+
+// En iPhone la app instalada NO comparte almacenamiento con Safari, así que
+// se abriría sin cliente. Se entrega a iOS un manifest cuyo inicio ya lleva
+// la tarjeta del cliente, para que la app instalada abra directo en ella.
+let iosManifestCustomerId = null;
+function syncIosInstallTarget() {
+    if (!isIosDevice() || isRunningStandalone() || detectInAppBrowser()) return;
+    if (!currentCustomerId || iosManifestCustomerId === currentCustomerId) return;
+
+    const link = document.getElementById('app-manifest');
+    if (!link) return;
+    const customerId = currentCustomerId;
+    const baseDir = new URL('./', window.location.href).href;
+
+    fetch('manifest.json')
+        .then((resp) => resp.json())
+        .then((manifest) => {
+            manifest.id = baseDir;
+            manifest.scope = baseDir;
+            manifest.start_url = baseDir + 'index.html?id=' + encodeURIComponent(customerId);
+            manifest.icons = (manifest.icons || []).map((icon) =>
+                Object.assign({}, icon, { src: new URL(icon.src, baseDir).href }));
+            link.setAttribute('href',
+                'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifest)));
+            iosManifestCustomerId = customerId;
+        })
+        .catch(() => { /* se mantiene el manifest normal */ });
+}
 
 if (btnPwaInstall) {
     btnPwaInstall.addEventListener('click', () => {
@@ -1524,23 +1590,7 @@ if (btnPwaClose) {
     });
 }
 
-// Lógica para Safari (iOS)
-const isIos = () => {
-    const userAgent = window.navigator.userAgent.toLowerCase();
-    return /iphone|ipad|ipod/.test(userAgent);
-};
-
-// isInStandaloneMode detecta si ya se está ejecutando como app instalada (PWA)
-const isInStandaloneMode = () => ('standalone' in window.navigator) && (window.navigator.standalone);
-
-if (isIos() && !isInStandaloneMode()) {
-    if (!localStorage.getItem('buendia_ios_install_dismissed')) {
-        // Mostrar el modal después de 2 segundos de cargar la app
-        setTimeout(() => {
-            if (modalInstallIos) openModal(modalInstallIos);
-        }, 2000);
-    }
-}
+// La guía de instalación para Safari (iOS) se muestra desde maybeOfferInstall()
 
 if (btnCloseInstallIos) {
     btnCloseInstallIos.addEventListener('click', () => {

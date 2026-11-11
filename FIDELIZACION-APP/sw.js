@@ -1,12 +1,18 @@
 // Service Worker para Buen Día Café - Club de Fidelización
-const CACHE_NAME = 'buendia-fidelizacion-v2.2.0';
+const CACHE_NAME = 'buendia-fidelizacion-v2.3.0';
+// Las versiones (?v=) deben coincidir con las que pide index.html
 const ASSETS = [
   './',
   './index.html',
-  './styles.css',
-  './app.js',
+  './styles.css?v=5',
+  './app.js?v=5',
   './manifest.json',
   './icon.svg',
+  './icon-192.png',
+  './icon-180.png',
+  './icon_yellow.png',
+  './logo.png',
+  './sello.png',
   './granos de cafe pros.jpg',
   'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap',
   'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js',
@@ -18,9 +24,12 @@ const ASSETS = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS).catch((err) => {
-        console.warn('Algunos recursos externos no se pudieron pre-cachear:', err);
-      });
+      // Uno por uno: si un recurso falla, los demás igual quedan guardados
+      return Promise.all(ASSETS.map((url) =>
+        cache.add(url).catch((err) => {
+          console.warn('No se pudo pre-cachear:', url, err);
+        })
+      ));
     }).then(() => self.skipWaiting())
   );
 });
@@ -57,7 +66,15 @@ self.addEventListener('fetch', (event) => {
           });
         }
         return networkResponse;
-      }).catch(() => cachedResponse);
+      }).catch(() => {
+        if (cachedResponse) return cachedResponse;
+        // Sin conexión: servir la copia guardada aunque cambie el ?v= o el ?id=
+        if (event.request.url.startsWith(self.location.origin)) {
+          return caches.match(event.request, { ignoreSearch: true })
+            .then((resp) => resp || Response.error());
+        }
+        return Response.error();
+      });
 
       return cachedResponse || fetchPromise;
     })
